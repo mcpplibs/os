@@ -84,7 +84,7 @@ on another system. `os::env::loader()` names the program that runs the image,
 and `os::env::self_command()` is what starts the same program again --- a
 loader and an image, or the image alone when it is built for its system. A
 name's spelling is the host's as well: `os::fs::absolute()` and
-`os::fs::names_a_place()` read `C:\\x` and `bin\\x` as Windows does when the
+`os::fs::names_a_place()` read `C:\x` and `bin\x` as Windows does when the
 image runs there, where the standard library inside an image reads names as
 POSIX does. The
 image carries its C library and C++ run-time (`openkal-llvm-runtime`); the
