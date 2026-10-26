@@ -174,8 +174,28 @@ int main(int argc, char** argv) {
         check(me && me->id != 0, "this program has an identifier");
         check(me && os::process::alive(*me), "and is alive");
     }
-    const auto whole = os::fs::absolute(*self);
-    check(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value(),
-          "a program is found by name in a list of directories");
+    // The program the system starts: this one, or in an ok image its loader.
+    const auto started = os::is_image ? os::env::loader() : self;
+    if (started) {
+        const auto whole = os::fs::absolute(*started);
+        check(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value(),
+              "a program is found by name in a list of directories");
+    }
+    {
+        // npm's directory holds `npm.cmd' and an extension-less `npm', the
+        // POSIX shell script: on Windows the name finds the first.
+        const auto dir = std::filesystem::temp_directory_path() / std::format("mcpplibs-os-find-{}", os::process::self()->id);
+        std::filesystem::create_directories(dir);
+        (void)os::fs::write(dir / "tool", "#!/bin/sh\n");
+        (void)os::fs::write(dir / "tool.cmd", "@echo off\n");
+        const auto found = os::env::find_executable("tool", os::fs::absolute(dir).string());
+        const bool windows = os::host() == os::platform::windows;
+        check(found && found->filename() == (windows ? "tool.cmd" : "tool"),
+              "a bare name finds what the system starts: on Windows by an extension, never the bare file");
+        const auto named = os::env::find_executable("tool.cmd", os::fs::absolute(dir).string());
+        check(named && named->filename() == "tool.cmd", "and a name with its extension is taken as written");
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    }
     return g_failures;
 }

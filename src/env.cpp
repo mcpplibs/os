@@ -98,23 +98,33 @@ bool is_program(const std::filesystem::path& p) {
 std::optional<std::filesystem::path> find_executable(std::string_view name, std::string_view path_list) {
     if (name.empty()) return std::nullopt;
     const bool windows = host() == platform::windows;
+    // On Windows what makes a file a program is its extension. A name that
+    // carries one of PATHEXT's is looked for as written; any other has each of
+    // them appended and is never looked for bare: an extension-less file
+    // beside `npm.cmd' is the POSIX shell script `npm', which this system
+    // cannot start.
     std::vector<std::string> suffixes{ "" };
     if (windows) {
         const auto ext = get("PATHEXT").value_or(".COM;.EXE;.BAT;.CMD");
         std::string lower_name(name);
         for (auto& c : lower_name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::vector<std::string> pieces;
         std::size_t s = 0;
         while (s <= ext.size()) {
             const auto e = ext.find(';', s);
             auto piece = ext.substr(s, e == std::string::npos ? std::string::npos : e - s);
             for (auto& c : piece) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-            if (!piece.empty() && !lower_name.ends_with(piece)) suffixes.push_back(piece);
+            if (!piece.empty()) pieces.push_back(piece);
             if (e == std::string::npos) break;
             s = e + 1;
         }
-        // A name the system starts directly comes before one it would hand to
-        // an interpreter, as the system's own search orders them.
-        std::ranges::stable_partition(suffixes, [](const std::string& x) { return x.empty() || x == ".exe" || x == ".com"; });
+        const bool carries = std::ranges::any_of(pieces, [&](const std::string& p) { return lower_name.ends_with(p); });
+        if (!carries) {
+            suffixes = pieces;
+            // A name the system starts directly comes before one it would hand
+            // to an interpreter, as the system's own search orders them.
+            std::ranges::stable_partition(suffixes, [](const std::string& x) { return x == ".exe" || x == ".com"; });
+        }
     }
     const std::filesystem::path given(name);
     if (fs::names_a_place(name)) {
