@@ -12,16 +12,16 @@ repo        = "https://github.com/mcpplibs/os"
 # own C and C++ runtime. A program that wants the standalone arrangement, or
 # the image arrangement of `<arch>-openkal`, selects it in its own manifest.
 [dependencies]
-openkal = { git = "https://github.com/mcpplibs/openkal.git", branch = "openkal-0.17.0" }
+openkal = "0.17.0"
 
 [target.linux.dependencies]
-openkal-linux = { git = "https://github.com/mcpplibs/openkal-linux.git", branch = "openkal-0.17.0" }
+openkal-linux = "0.18.0"
 
 [target.macos.dependencies]
-openkal-macos = { git = "https://github.com/mcpplibs/openkal-macos.git", branch = "openkal-0.17.0" }
+openkal-macos = "0.15.0"
 
 [target.windows.dependencies]
-openkal-windows = { git = "https://github.com/mcpplibs/openkal-windows.git", branch = "openkal-0.17.0" }
+openkal-windows = "0.13.0"
 
 [targets.os]
 kind = "lib"
