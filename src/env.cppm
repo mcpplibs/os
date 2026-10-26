@@ -25,6 +25,16 @@ std::vector<std::string> arguments();
 // `kal_env_image'); for an image started by a loader, the image's.
 std::optional<std::filesystem::path> image();
 
+// The program that loaded this image and runs it, where this program is an ok
+// image (`<arch>-openkal'; openkal's `kal_env_loader'); nothing for a program
+// built for its environment.
+std::optional<std::filesystem::path> loader();
+
+// What starts this program again, before its own arguments: its image; in an ok
+// image, the loader and then the image --- or the loader alone, where the image
+// is carried inside it (a self-contained program, M3).
+std::vector<std::string> self_command();
+
 // The system the program runs upon, by name (`linux', `macos', `windows').
 // For conventions only, as openkal restricts it.
 std::optional<std::string> system();

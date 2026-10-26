@@ -38,20 +38,28 @@ int main(int argc, char** argv) {
     const auto self = os::env::image();
     check(self.has_value(), "this program's image is named");
     if (!self) return g_failures;
+    // What starts this program again: its image, or in an ok image the loader
+    // and the image.
+    const auto again = os::env::self_command();
+    check(!again.empty(), "what starts this program again is known");
+    auto copy = [&](std::string errand) {
+        os::process::spawn_options o;
+        o.program = again.front();
+        o.args.assign(again.begin() + 1, again.end());
+        o.args.push_back("--child");
+        o.args.push_back(std::move(errand));
+        return o;
+    };
 
     {
-        os::process::spawn_options o;
-        o.program = *self;
-        o.args = { "--child", "echo" };
+        auto o = copy("echo");
         auto r = os::process::run(o, "hello");
         check(r && r->out == "hello", "a started program reads its input and writes its output");
         check(r && r->err == "err", "and its error output is collected beside");
         check(r && r->status.code == 7 && !r->status.by_environment, "and its status is the one it returned");
     }
     {
-        os::process::spawn_options o;
-        o.program = *self;
-        o.args = { "--child", "env" };
+        auto o = copy("env");
         o.env = { { "OS_TEST_VALUE", std::string("set") } };
         auto r = os::process::run(o);
         check(r && r->out == "set", "an environment override reaches the program");
@@ -62,17 +70,13 @@ int main(int argc, char** argv) {
     {
         const auto dir = std::filesystem::temp_directory_path() / "mcpplibs-os-cwd-probe";
         std::filesystem::create_directories(dir);
-        os::process::spawn_options o;
-        o.program = *self;
-        o.args = { "--child", "cwd" };
+        auto o = copy("cwd");
         o.cwd = dir;
         auto r = os::process::run(o);
         check(r && r->out == "mcpplibs-os-cwd-probe", "a program runs in the directory it is given");
     }
     {
-        os::process::spawn_options o;
-        o.program = *self;
-        o.args = { "--child", "sleep" };
+        auto o = copy("sleep");
         o.out = os::process::stdio::null;
         o.err = os::process::stdio::null;
         o.own_unit = true;
@@ -90,9 +94,7 @@ int main(int argc, char** argv) {
         }
     }
     if (os::interrupt::available()) {
-        os::process::spawn_options o;
-        o.program = *self;
-        o.args = { "--child", "interrupt" };
+        auto o = copy("interrupt");
         auto p = os::process::process::spawn(o);
         if (p) {
             auto first = p->read_output();

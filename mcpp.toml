@@ -52,3 +52,17 @@ sources = ["src/targets/macos.cppm", "src/macos/*.cpp", "src/posix/*.cpp"]
 
 [target.windows.build]
 sources = ["src/targets/windows.cppm", "src/windows/*.cpp"]
+
+# AN OK IMAGE (`<arch>-openkal', openkal SPEC clause 12): no implementation
+# beneath --- the loader binds the image's `kal_*' --- and no platform module
+# defined. `host()' and the conventions are answered when the image is loaded.
+[target.'cfg(os = "openkal")'.build]
+sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
+
+# The tests of this package, built as images, carry the C library and the C++
+# run-time an image holds, and the loader that runs them.
+[target.'cfg(os = "openkal")'.dev-dependencies]
+openkal-llvm-runtime = { git = "https://github.com/mcpplibs/openkal-llvm-runtime.git", branch = "openkal-0.17.0" }
+
+[target.'cfg(os = "openkal")'.build-dependencies]
+openkal-tools = { git = "https://github.com/mcpplibs/openkal-image.git", branch = "openkal-0.17.0", tools = ["okld", "okrun"] }

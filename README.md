@@ -72,6 +72,21 @@ Interface units import `std` and contain no system header and no macro. Implemen
 on openkal import only `openkal.*`. The Windows units declare the functions they call
 themselves (`src/windows/win32.h`).
 
+## As an ok image
+
+Built for `<arch>-openkal` (openkal SPEC clause 12), a program over this library
+is one image per architecture that `okrun` runs on Linux, macOS and Windows.
+`os::PLATFORM` is `platform::openkal` and `os::is_image` is true; `os::host()`
+is an ordinary function there, answered when the image is loaded, and
+`os::conventions()` follows it; `exe_suffix` and `path_list_separator` are not
+provided, so code that reads them is a compile error rather than a wrong answer
+on another system. `os::env::loader()` names the program that runs the image,
+and `os::env::self_command()` is what starts the same program again --- a
+loader and an image, or the image alone when it is built for its system. The
+image carries its C library and C++ run-time (`openkal-llvm-runtime`); the
+tests are built as images in CI and run through okrun on four systems, and
+`checks/constants` holds the compile-time facts of a native target.
+
 ## License
 
 Apache-2.0

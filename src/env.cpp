@@ -51,6 +51,21 @@ std::optional<std::filesystem::path> image() {
     return std::filesystem::path(*s);
 }
 
+std::optional<std::filesystem::path> loader() {
+    auto s = counted([](char* o, kal_uintptr cap) { return kal_env_loader(o, cap); });
+    if (!s || s->empty()) return std::nullopt;
+    return std::filesystem::path(*s);
+}
+
+std::vector<std::string> self_command() {
+    std::vector<std::string> out;
+    const auto program = loader();
+    const auto own = image();
+    if (program) out.push_back(program->string());
+    if (own && (!program || *own != *program)) out.push_back(own->string());
+    return out;
+}
+
 std::optional<std::string> system() {
     return counted([](char* o, kal_uintptr cap) { return kal_env_system(o, cap); });
 }
