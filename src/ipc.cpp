@@ -103,6 +103,10 @@ void connection::shutdown_write() {
     if (conn_) kal_net_shutdown(kal_net_conn{ conn_ }, 2 /* KAL_SHUT_WRITE */);
 }
 
+void connection::shutdown() {
+    if (conn_) kal_net_shutdown(kal_net_conn{ conn_ }, 3 /* KAL_SHUT_BOTH */);
+}
+
 void connection::close() {
     if (conn_) { kal_net_close(kal_net_conn{ conn_ }); conn_ = 0; }
 }

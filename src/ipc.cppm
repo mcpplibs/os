@@ -28,6 +28,10 @@ public:
     result<std::optional<std::string>> read_for(std::chrono::milliseconds timeout, std::size_t at_most = 65536);
     result<void> write(std::string_view bytes);
     void shutdown_write();
+    // Both directions ended: a thread reading is woken with the end, a thread
+    // writing fails. Safe from another thread while one reads or writes; the
+    // handle itself is released by `close', once nothing uses it.
+    void shutdown();
     void close();
     // A connection openkal made elsewhere (`kal_net_conn', carried as its word),
     // adopted: this object releases it.

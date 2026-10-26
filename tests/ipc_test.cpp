@@ -44,5 +44,28 @@ int main() {
             check(r && *r == "hi", "and a loopback connection reads what was written");
         }
     }
+    {
+        // A reader woken by another thread's shutdown, while its peer writes nothing; and both
+        // directions at once, a write while a read waits.
+        auto l = os::net::loopback_listener::listen();
+        if (l) {
+            std::optional<os::ipc::connection> accepted;
+            std::jthread server([&] { if (auto c = l->accept()) accepted.emplace(std::move(*c)); });
+            auto c = os::net::connect_loopback(l->port());
+            server.join();
+            check(c && accepted, "a connection is accepted");
+            if (c && accepted) {
+                std::atomic<bool> woken{ false };
+                std::jthread reader([&] { auto r = c->read(); woken = r && r->empty(); });
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                check(c->write("while a read waits").has_value(), "a write proceeds while a read on the same connection waits");
+                auto echoed = accepted->read();
+                check(echoed && *echoed == "while a read waits", "and arrives");
+                c->shutdown();
+                reader.join();
+                check(woken.load(), "a shutdown from another thread wakes the reader with the end");
+            }
+        }
+    }
     return g_failures;
 }
