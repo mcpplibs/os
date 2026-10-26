@@ -3,7 +3,7 @@
 // The compile-time constants are the first-class interface (design part 2,
 // R3): a program written for several systems dispatches with `if constexpr`,
 // and a branch for another system is discarded rather than compiled. They come
-// from one partition per target (src/target/<os>.cppm), which the manifest
+// from one partition per target (src/targets/<os>.cppm), which the manifest
 // selects, so no macro reaches this interface.
 //
 // `host()' names the system the program RUNS upon. Built for a system, that is

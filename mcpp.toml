@@ -35,10 +35,10 @@ kind = "lib"
 sources = ["src/*.cppm", "src/*.cpp"]
 
 [target.linux.build]
-sources = ["src/target/linux.cppm", "src/linux/*.cpp", "src/posix/*.cpp"]
+sources = ["src/targets/linux.cppm", "src/linux/*.cpp", "src/posix/*.cpp"]
 
 [target.macos.build]
-sources = ["src/target/macos.cppm", "src/macos/*.cpp", "src/posix/*.cpp"]
+sources = ["src/targets/macos.cppm", "src/macos/*.cpp", "src/posix/*.cpp"]
 
 [target.windows.build]
-sources = ["src/target/windows.cppm", "src/windows/*.cpp"]
+sources = ["src/targets/windows.cppm", "src/windows/*.cpp"]
