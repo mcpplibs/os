@@ -39,7 +39,15 @@ std::vector<std::string> self_command();
 // For conventions only, as openkal restricts it.
 std::optional<std::string> system();
 
-// The directories `PATH' names, in order.
+// A list of directories as a variable holds one (`PATH', `PKG_CONFIG_PATH',
+// `LD_LIBRARY_PATH'), split at the host's separator (`;' on Windows, `:'
+// elsewhere): empty entries skipped, and on Windows an entry quoted whole
+// unquoted, as the system's own search reads it. `join_list' is its inverse,
+// in the host's spelling.
+std::vector<std::filesystem::path> split_list(std::string_view value);
+std::string join_list(std::span<const std::filesystem::path> directories);
+
+// The directories `PATH' names, in order (`split_list' of its value).
 std::vector<std::filesystem::path> search_path();
 
 // A program by name, as a shell would find it: a name with a directory is

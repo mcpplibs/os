@@ -72,21 +72,35 @@ std::optional<std::string> system() {
     return counted([](char* o, kal_uintptr cap) { return kal_env_system(o, cap); });
 }
 
-std::vector<std::filesystem::path> search_path() {
+std::vector<std::filesystem::path> split_list(std::string_view value) {
     std::vector<std::filesystem::path> out;
-    const auto value = get("PATH");
-    if (!value) return out;
+    const bool windows = host() == platform::windows;
     const char sep = conventions().path_list_separator;
     std::size_t start = 0;
-    while (start <= value->size()) {
-        const auto end = value->find(sep, start);
-        const auto piece = value->substr(start, end == std::string::npos ? std::string::npos : end - start);
-        if (!piece.empty()) out.emplace_back(piece);
-        if (end == std::string::npos) break;
+    while (start <= value.size()) {
+        const auto end = value.find(sep, start);
+        auto piece = value.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start);
+        while (!piece.empty() && (piece.front() == ' ' || piece.front() == '\t')) piece.remove_prefix(1);
+        while (!piece.empty() && (piece.back() == ' ' || piece.back() == '\t')) piece.remove_suffix(1);
+        if (windows && piece.size() >= 2 && piece.front() == '"' && piece.back() == '"') piece = piece.substr(1, piece.size() - 2);
+        if (!piece.empty()) out.emplace_back(std::string(piece));
+        if (end == std::string_view::npos) break;
         start = end + 1;
     }
     return out;
 }
+
+std::string join_list(std::span<const std::filesystem::path> directories) {
+    std::string out;
+    const char sep = conventions().path_list_separator;
+    for (const auto& d : directories) {
+        if (!out.empty()) out += sep;
+        out += fs::native(d);
+    }
+    return out;
+}
+
+std::vector<std::filesystem::path> search_path() { return split_list(get("PATH").value_or("")); }
 
 namespace {
 bool is_program(const std::filesystem::path& p) {
@@ -134,19 +148,11 @@ std::optional<std::filesystem::path> find_executable(std::string_view name, std:
         }
         return std::nullopt;
     }
-    const char sep = conventions().path_list_separator;
-    std::size_t start = 0;
-    while (start <= path_list.size()) {
-        const auto end = path_list.find(sep, start);
-        const auto dir = path_list.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start);
-        if (!dir.empty())
-            for (const auto& s : suffixes) {
-                auto candidate = std::filesystem::path(dir) / given; candidate += s;
-                if (is_program(candidate)) return candidate;
-            }
-        if (end == std::string_view::npos) break;
-        start = end + 1;
-    }
+    for (const auto& dir : split_list(path_list))
+        for (const auto& s : suffixes) {
+            auto candidate = dir / given; candidate += s;
+            if (is_program(candidate)) return candidate;
+        }
     return std::nullopt;
 }
 
