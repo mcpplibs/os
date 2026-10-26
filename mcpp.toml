@@ -34,6 +34,16 @@ kind = "lib"
 [build]
 sources = ["src/*.cppm", "src/*.cpp"]
 
+# The architecture of the build, as a constant beside the platform's.
+[target.'cfg(arch = "x86_64")'.build]
+sources = ["src/arch/x86_64.cppm"]
+
+[target.'cfg(arch = "aarch64")'.build]
+sources = ["src/arch/aarch64.cppm"]
+
+[target.'cfg(arch = "riscv64")'.build]
+sources = ["src/arch/riscv64.cppm"]
+
 [target.linux.build]
 sources = ["src/targets/linux.cppm", "src/linux/*.cpp", "src/posix/*.cpp"]
 

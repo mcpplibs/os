@@ -10,6 +10,7 @@ static_assert(os::host() == os::PLATFORM);
 static_assert(os::is_linux + os::is_macos + os::is_windows == 1);
 static_assert(os::is_posix == (os::is_linux || os::is_macos));
 static_assert(!os::is_image);
+static_assert(os::name(os::ARCH) == "x86_64" || os::name(os::ARCH) == "aarch64" || os::name(os::ARCH) == "riscv64");
 static_assert(os::exe_suffix == (os::is_windows ? ".exe" : ""));
 
 int main() {

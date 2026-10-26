@@ -15,6 +15,7 @@ export module mcpplibs.os.platform;
 
 import std;
 export import :target;
+export import :arch;
 
 export namespace mcpplibs::os {
 
@@ -35,6 +36,15 @@ constexpr std::string_view name(platform p) noexcept {
         case platform::macos:   return "macos";
         case platform::windows: return "windows";
         case platform::openkal: return "openkal";
+    }
+    return "unknown";
+}
+
+constexpr std::string_view name(architecture a) noexcept {
+    switch (a) {
+        case architecture::x86_64:  return "x86_64";
+        case architecture::aarch64: return "aarch64";
+        case architecture::riscv64: return "riscv64";
     }
     return "unknown";
 }

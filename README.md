@@ -37,7 +37,7 @@ modules.
 
 | Module | Contents |
 |---|---|
-| `mcpplibs.os.platform` | `PLATFORM`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
+| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables, arguments, the program's own image, PATH search with PATHEXT |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `locate` |
