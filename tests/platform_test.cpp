@@ -24,5 +24,7 @@ int main() {
     check(!os::machine::arch().empty(), "the machine's architecture is named");
     if constexpr (!os::is_image)
         check(os::machine::memory().value_or(0) > 0, "the machine's memory is known");
+    const auto a = os::random::hex(16), b = os::random::hex(16);
+    check(a && a->size() == 32 && b && *a != *b, "the system's source gives bytes that differ from call to call");
     return g_failures;
 }

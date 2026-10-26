@@ -18,6 +18,7 @@ export import mcpplibs.os.dirs;
 export import mcpplibs.os.ipc;
 export import mcpplibs.os.net;
 export import mcpplibs.os.machine;
+export import mcpplibs.os.random;
 export import mcpplibs.os.linux;
 export import mcpplibs.os.macos;
 export import mcpplibs.os.windows;

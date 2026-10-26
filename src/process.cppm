@@ -13,7 +13,11 @@ export import mcpplibs.os.error;
 
 export namespace mcpplibs::os::process {
 
-enum class stdio { inherit, pipe, null };
+// What a started program's stream is: this program's own, a pipe to this
+// program, the null device, or (`error') this program's standard error --- for
+// a program whose standard output carries a protocol, where what a child
+// writes may not reach it.
+enum class stdio { inherit, pipe, null, error };
 
 struct spawn_options {
     // An absolute name, or a bare one looked for on PATH (`env::find_executable').
@@ -72,6 +76,10 @@ public:
     // The same, giving up after `timeout': nothing when it expired.
     result<std::optional<std::string>> read_output_for(std::chrono::milliseconds timeout);
     result<std::optional<std::string>> read_error_for(std::chrono::milliseconds timeout);
+    // False once a bounded read met a stream the system cannot bound and read
+    // it unbounded instead: a thread waiting there cannot be stopped by its
+    // bound, only by the stream's end.
+    bool reads_bounded() const noexcept;
 
     result<exit_status> wait();
     result<std::optional<exit_status>> try_wait();
@@ -81,6 +89,11 @@ public:
     void terminate();
     // The program's unit, or the program, ended outright.
     void kill();
+    // Everything else in the program's unit ended, whether or not the program
+    // itself still runs: a program that left something behind (a descendant
+    // holding a pipe open) is exactly the case where it has ended and its unit
+    // has not. Nothing happens for a program without a unit.
+    void end_unit();
     // Released, and left running.
     void detach();
 

@@ -96,7 +96,8 @@ result<std::string> read_chunk(kal_stream s, bool open) {
     return std::string(buf, static_cast<std::size_t>(n));
 }
 
-result<std::optional<std::string>> read_chunk_for(kal_stream s, bool open, std::chrono::milliseconds t) {
+result<std::optional<std::string>> read_chunk_for(kal_stream s, bool open, std::chrono::milliseconds t,
+                                                   std::atomic<bool>& bounded) {
     if (!open) return std::optional<std::string>{ std::string{} };
     char buf[16384];
     const kal_intptr n = kal_timeout_read(s, buf, sizeof buf, nanoseconds(t));
@@ -105,6 +106,7 @@ result<std::optional<std::string>> read_chunk_for(kal_stream s, bool open, std::
         if (code == kal_err_again) return std::optional<std::string>{};
         if (code == kal_err_closed) return std::optional<std::string>{ std::string{} };
         if (code == kal_err_not_supported) {
+            bounded = false;
             auto r = read_chunk(s, open);
             if (!r) return std::unexpected(r.error());
             return std::optional<std::string>{ std::move(*r) };
@@ -123,6 +125,7 @@ struct process::state {
     kal_job     job{};
     bool        has_job = false;
     std::optional<exit_status> ended;
+    std::atomic<bool> bounded{ true };
     std::mutex  write_lock, wait_lock;
 };
 
@@ -156,6 +159,8 @@ std::uint64_t process::id() const {
 }
 
 result<process> process::spawn(const spawn_options& o) {
+    if (o.in == stdio::error)
+        return std::unexpected(error{ errc::invalid, "a program's input cannot be this program's error output" });
     // The program, by name or by its place.
     std::filesystem::path program = o.program;
     if (!fs::names_a_place(o.program.generic_string())) {
@@ -212,6 +217,8 @@ result<process> process::spawn(const spawn_options& o) {
         auto n = open_null(false);
         if (!n) return fail_streams(n.error());
         child_out = n->child; nulls.push_back(*n);
+    } else if (o.out == stdio::error) {
+        child_out = kal_stderr();
     }
     if (o.err == stdio::pipe) {
         if (const int rc = kal_process_channel(&s->error, &child_err); rc != kal_ok)
@@ -221,6 +228,8 @@ result<process> process::spawn(const spawn_options& o) {
         auto n = open_null(false);
         if (!n) return fail_streams(n.error());
         child_err = n->child; nulls.push_back(*n);
+    } else if (o.err == stdio::error) {
+        child_err = kal_stderr();
     }
 
     // The vector, the first element in the system's own spelling: a program
@@ -290,11 +299,11 @@ result<std::string> process::read_error() {
 }
 result<std::optional<std::string>> process::read_output_for(std::chrono::milliseconds t) {
     if (!state_) return std::optional<std::string>{ std::string{} };
-    return read_chunk_for(state_->output, state_->output_open, t);
+    return read_chunk_for(state_->output, state_->output_open, t, state_->bounded);
 }
 result<std::optional<std::string>> process::read_error_for(std::chrono::milliseconds t) {
     if (!state_) return std::optional<std::string>{ std::string{} };
-    return read_chunk_for(state_->error, state_->error_open, t);
+    return read_chunk_for(state_->error, state_->error_open, t, state_->bounded);
 }
 
 result<exit_status> process::wait() {
@@ -334,6 +343,13 @@ void process::kill() {
     if (state_->ended) return;
     if (state_->has_job) kal_process_job_terminate(state_->job);
     else kal_process_terminate(state_->handle);
+}
+
+bool process::reads_bounded() const noexcept { return !state_ || state_->bounded.load(); }
+
+void process::end_unit() {
+    if (!state_ || !state_->has_job) return;
+    kal_process_job_terminate(state_->job);
 }
 
 void process::detach() {

@@ -5,7 +5,44 @@ import mcpplibs.os;
 
 namespace os = mcpplibs::os;
 
+// What starts this program again with an errand.
+os::process::spawn_options copy_of_self(std::string errand) {
+    const auto again = os::env::self_command();
+    os::process::spawn_options o;
+    if (again.empty()) return o;
+    o.program = again.front();
+    o.args.assign(again.begin() + 1, again.end());
+    o.args.push_back("--child");
+    o.args.push_back(std::move(errand));
+    return o;
+}
+
 int child(std::string_view errand) {
+    if (errand == "say") {
+        (void)os::stdio::write_output("said");
+        return 0;
+    }
+    if (errand == "relay") {
+        // A program whose own output is a protocol: what it starts writes to
+        // its error output instead.
+        auto o = copy_of_self("say");
+        o.out = os::process::stdio::error;
+        o.err = os::process::stdio::inherit;
+        auto p = os::process::process::spawn(o);
+        if (!p) return 1;
+        auto st = p->wait();
+        return st && st->success() ? 0 : 2;
+    }
+    if (errand == "leave") {
+        // Leaves a program behind that holds this one's output open.
+        auto o = copy_of_self("sleep");
+        o.out = os::process::stdio::inherit;
+        o.err = os::process::stdio::null;
+        auto p = os::process::process::spawn(o);
+        if (!p) return 1;
+        p->detach();
+        return 0;
+    }
     if (errand == "echo") {
         auto in = os::stdio::read_exactly(5);
         (void)os::stdio::write_output(in.value_or(""));
@@ -92,6 +129,29 @@ int main(int argc, char** argv) {
             p->kill();
             auto st = p->wait();
             check(st && !st->success(), "and the unit, ended, does not report success");
+        }
+    }
+    {
+        auto r = os::process::run(copy("relay"));
+        check(r && r->status.success() && r->out.empty() && r->err == "said",
+              "a program started with its output on the error output writes there");
+    }
+    {
+        auto o = copy("leave");
+        o.in = os::process::stdio::null;
+        o.err = os::process::stdio::null;
+        o.own_unit = true;
+        auto p = os::process::process::spawn(o);
+        check(p.has_value(), "a program that leaves another behind is started in a unit");
+        if (p) {
+            auto st = p->wait();
+            check(st && st->success(), "and ends");
+            auto held = p->read_output_for(std::chrono::milliseconds(300));
+            check(held && !held->has_value(), "while what it left holds its output open");
+            p->end_unit();
+            auto end = p->read_output_for(std::chrono::seconds(20));
+            check(end && end->has_value() && (*end)->empty(), "and ending the rest of its unit closes it");
+            check(p->reads_bounded(), "and every bounded read here was bounded");
         }
     }
     if (os::interrupt::available()) {
