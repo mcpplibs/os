@@ -26,9 +26,12 @@ bool color(stream s);
 
 // Keystrokes as they are typed --- no line assembly, no echo, none kept by the
 // system, none altered --- until destroyed, when the previous mode returns.
+// `keep_interrupt' leaves the system the keystroke that interrupts the program
+// (Ctrl-C), so a program that reads keys still ends as a person asks (0.2.0).
+struct raw_options { bool keep_interrupt = false; };
 class raw_mode {
 public:
-    static result<raw_mode> enter();
+    static result<raw_mode> enter(raw_options options = {});
     raw_mode() = default;
     raw_mode(raw_mode&&) noexcept;
     raw_mode& operator=(raw_mode&&) noexcept;

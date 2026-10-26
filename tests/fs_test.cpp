@@ -118,5 +118,41 @@ int main() {
         if (again) again->release();
         stdfs::remove_all(dir);
     }
+        {
+        // 0.2.0: appending, durability, measured volumes, placing, exchanging.
+        const auto dir = std::filesystem::temp_directory_path()
+            / std::format("mcpplibs-os-fs2-{}", os::process::self()->id);
+        std::filesystem::create_directories(dir);
+        check(os::fs::append(dir / "log", "a").has_value() && os::fs::append(dir / "log", "b").has_value()
+                  && os::fs::read(dir / "log").value_or("") == "ab",
+              "appends land whole at the end, the file created by the first");
+        check(os::fs::sync(dir / "log").has_value() && os::fs::sync(dir).has_value(),
+              "a file and a directory are made durable");
+        const auto b = os::fs::measure(dir);
+        check(b.measured, "a writable directory's volume is measured");
+        (void)os::fs::write(dir / "x", "x");
+        check(os::fs::place(dir / "x", dir / "y").has_value() && os::fs::read(dir / "y").value_or("") == "x"
+                  && !std::filesystem::exists(dir / "x"),
+              "an entry is placed under a free name");
+        (void)os::fs::write(dir / "z", "z");
+        const auto refused = os::fs::place(dir / "z", dir / "y");
+        check(!refused && os::fs::read(dir / "y").value_or("") == "x", "and never over one that is there");
+        (void)os::fs::write(dir / "p", "p");
+        (void)os::fs::write(dir / "q", "q");
+        check(os::fs::exchange(dir / "p", dir / "q").has_value()
+                  && os::fs::read(dir / "p").value_or("") == "q" && os::fs::read(dir / "q").value_or("") == "p",
+              "two entries trade places");
+        if (!os::is_image) {
+            check(os::fs::owner_of(dir) == os::fs::owner::this_user, "a directory this program made is its user's");
+            check(os::fs::writable(dir), "and this user may write it");
+        }
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+    }
+    check(os::fs::windows_extended("C:/a/./b/../c") == "\\\\?\\C:\\a\\c", "a drive name in the long spelling, resolved");
+    check(os::fs::windows_extended("//server/share/x") == "\\\\?\\UNC\\server\\share\\x", "a share in the long spelling");
+    check(os::fs::windows_extended("C:/..") == "\\\\?\\C:\\", "and `..' never climbs above the drive");
+    check(os::fs::windows_extended("rel/x") == "rel/x", "a relative name is not this rule's");
+    if (os::host() != os::platform::windows) check(os::fs::extended("/a/b") == "/a/b", "elsewhere the name is itself");
     return g_failures;
 }

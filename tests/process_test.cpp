@@ -57,6 +57,42 @@ int child(std::string_view errand) {
         (void)os::stdio::write_output(std::filesystem::current_path().filename().string());
         return 0;
     }
+    if (errand == "both") {
+        // Written in turn to both streams: a reader of one pipe for both sees
+        // them in this order.
+        (void)os::stdio::write_output("1");
+        (void)os::stdio::write_error("2");
+        (void)os::stdio::write_output("3");
+        return 0;
+    }
+    if (errand == "become") {
+        // This program becomes another copy of itself that returns 7.
+        auto o = copy_of_self("seven");
+        o.out = os::process::stdio::inherit;
+        o.err = os::process::stdio::inherit;
+        auto r = os::process::exec(o);
+        (void)os::stdio::write_error(r ? "returned" : r.error().message());
+        return 1;
+    }
+    if (errand == "seven") {
+        (void)os::stdio::write_output("became");
+        return 7;
+    }
+    if (errand == "wait-input") {
+        // Nothing arrives within the bound; then the input arrives and is read.
+        auto none = os::stdio::read_input_for(std::chrono::milliseconds(100));
+        if (none && none->has_value()) return 2;
+        auto some = os::stdio::read_input_for(std::chrono::seconds(20));
+        (void)os::stdio::write_output(some && some->has_value() ? **some : std::string("<none>"));
+        return none ? 0 : 3;
+    }
+    if (errand == "divert") {
+        auto d = os::stdio::output_to_error::begin();
+        if (!d) return 4;
+        (void)os::stdio::write_output("narration");
+        (void)d->write_original("document");
+        return 0;
+    }
     if (errand == "sleep") {
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
@@ -168,6 +204,42 @@ int main(int argc, char** argv) {
                 check(st && st->by_environment, "and ends as the request would have ended it");
             }
         }
+    }
+    {
+        auto o = copy("both");
+        o.out = os::process::stdio::pipe;
+        o.err = os::process::stdio::output;
+        auto p = os::process::process::spawn(o);
+        std::string all;
+        if (p) {
+            for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; all += *c; }
+            (void)p->wait();
+        }
+        check(all == "123", "one pipe carries a program's output and error output in the order written");
+    }
+    {
+        auto o = copy("become");
+        auto r = os::process::run(o);
+        check(r && r->out == "became" && r->status.code == 7,
+              "a program that becomes another ends with that program's status and output");
+    }
+    if (!os::is_image) {
+        auto o = copy("wait-input");
+        o.in = os::process::stdio::pipe;
+        o.out = os::process::stdio::pipe;
+        auto p = os::process::process::spawn(o);
+        if (p) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            (void)p->write("late");
+            p->close_input();
+            std::string out;
+            for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; out += *c; }
+            auto st = p->wait();
+            check(st && st->code == 0 && out == "late", "a bounded read of input expires, then reads what arrives");
+        }
+        auto d = os::process::run(copy("divert"));
+        check(d && d->out == "document" && d->err == "narration",
+              "output sent to the error stream for a while, and the document to the output as it was");
     }
     {
         auto me = os::process::self();
