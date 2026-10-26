@@ -99,7 +99,7 @@ jobs:
         run: |
           profile='${{ matrix.profile }}'
           mcpp test --profile "$profile" 2>&1 | tee tests.log
-          for name in platform_test fs_test process_test ipc_test dirs_terminal_test; do
+          for name in platform_test fs_test process_test ipc_test dirs_terminal_test linux_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
           done
 
@@ -155,7 +155,7 @@ jobs:
         run: |
           set -euo pipefail
           mcpp test --target x86_64-openkal 2>&1 | tee tests.log
-          for name in platform_test fs_test process_test ipc_test dirs_terminal_test; do
+          for name in platform_test fs_test process_test ipc_test dirs_terminal_test linux_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not pass as an image"; exit 1; }
           done
           mcpp test --target aarch64-openkal --no-run
