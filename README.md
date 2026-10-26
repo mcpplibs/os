@@ -39,8 +39,8 @@ modules.
 |---|---|
 | `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
-| `mcpplibs.os.env` | variables, arguments, the program's own image, PATH search with PATHEXT |
-| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `locate`, `absolute`, `names_a_place` |
+| `mcpplibs.os.env` | variables (names without case on Windows), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
+| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `locate`, `absolute`, `names_a_place`; names in the host's rules without the file system: `generic`, `native`, `is_absolute`, `same`, `within` |
 | `mcpplibs.os.process` | `spawn`, `run`, pipes, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested` |
 | `mcpplibs.os.stdio` | the three streams as bytes |

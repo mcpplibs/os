@@ -63,6 +63,34 @@ int main() {
               && os::fs::names_a_place("bin\\tool") == (os::host() == os::platform::windows),
           "a drive and a backslash say where a file is on Windows and nowhere else");
 
+    {
+        // Names in the host's rules, without the file system.
+        const bool windows = os::host() == os::platform::windows;
+        check(os::fs::generic("a/./b/../c/") == "a/c", "a name is spelt with its dots resolved and no trailing separator");
+        check(os::fs::generic("/x/../../y") == "/y", "and nothing is above the root");
+        check(os::fs::is_absolute("/usr/bin") == !windows, "a leading separator is a root on POSIX");
+        if (windows) {
+            check(os::fs::generic("C:\\Users\\x\\") == "C:/Users/x", "a Windows name is spelt with forward separators");
+            check(os::fs::native("C:/Users/x") == "C:\\Users\\x", "and the host's separator for a person or a program");
+            check(os::fs::is_absolute("C:/x") && !os::fs::is_absolute("C:x") && os::fs::is_absolute("//srv/share/x"),
+                  "a drive and a separator, or a share, is a root; a drive alone is not");
+            check(os::fs::same("C:/Users/X", "c:\\users\\x"), "names are the same without regard to case");
+        } else {
+            check(os::fs::native("a/b") == "a/b", "a POSIX name is its own native spelling");
+            check(os::fs::same("/a/b", "/a/./b/") && (os::fs::same("/a/B", "/a/b") == (os::host() == os::platform::macos)),
+                  "names compare by components, and by case where the host's names do");
+        }
+        check(os::fs::within("/a/b/c", "/a/b") && os::fs::within("/a/b", "/a/b") && !os::fs::within("/a/bc", "/a/b"),
+              "a name is within a directory by components");
+        const char sep = os::conventions().path_list_separator;
+        const std::string list = std::string("/x") + sep + sep + " /y " + sep + (windows ? "\"C:/with space\"" : "/z");
+        const auto parts = os::env::split_list(list);
+        check(parts.size() == 3 && parts[0] == "/x" && parts[1] == "/y", "a list splits at the host's separator and skips empty entries");
+        if (windows) check(parts.size() == 3 && parts[2] == "C:/with space", "and an entry quoted whole is unquoted");
+        const std::vector<std::filesystem::path> dirs{ "/p", "/q" };
+        check(os::env::split_list(os::env::join_list(dirs)).size() == 2, "and joining is its inverse");
+    }
+
     if (caps && caps->remove_open) {
         std::error_code ec;
         stdfs::remove_all(dir, ec);

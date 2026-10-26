@@ -38,7 +38,7 @@ std::vector<supplied> table() {
 
 bool separator(char c) { return c == '/' || c == '\\'; }
 
-std::string generic(std::string s) {
+std::string slashed(std::string s) {
     for (auto& c : s) if (c == '\\') c = '/';
     while (s.size() > 1 && s.back() == '/' && !(s.size() == 2 && s[0] == '/')) s.pop_back();
     return s;
@@ -111,7 +111,84 @@ std::filesystem::path absolute(const std::filesystem::path& name) {
     std::error_code ec;
     const auto cwd = std::filesystem::current_path(ec);
     if (ec) return name;
-    return std::filesystem::path(generic(cwd.generic_string()) + "/" + s);
+    return std::filesystem::path(slashed(cwd.generic_string()) + "/" + s);
+}
+
+namespace {
+// The root a name begins with, in the generic spelling: `C:/' or `C:' (a drive
+// and the directory current on it), `//server/share/' on Windows; `/' elsewhere;
+// empty for a relative name.
+std::size_t root_length(std::string_view g, bool windows) {
+    if (windows) {
+        if (g.size() >= 2 && std::isalpha(static_cast<unsigned char>(g[0])) && g[1] == ':')
+            return g.size() >= 3 && g[2] == '/' ? 3 : 2;
+        if (g.size() >= 2 && g[0] == '/' && g[1] == '/') {
+            const auto server = g.find('/', 2);
+            if (server == std::string_view::npos) return g.size();
+            const auto share = g.find('/', server + 1);
+            return share == std::string_view::npos ? g.size() : share + 1;
+        }
+    }
+    return !g.empty() && g[0] == '/' ? 1 : 0;
+}
+
+bool fold_equal(std::string_view a, std::string_view b, bool fold) {
+    return a.size() == b.size() && same_prefix(a, b, fold);
+}
+}  // namespace
+
+std::string generic(const std::filesystem::path& name) {
+    const bool windows = host() == platform::windows;
+    std::string s = name.generic_string();
+    if (windows) std::ranges::replace(s, '\\', '/');
+    const std::size_t rootLen = root_length(s, windows);
+    const std::string root = s.substr(0, rootLen);
+    std::vector<std::string_view> parts;
+    std::string_view rest = std::string_view(s).substr(rootLen);
+    while (!rest.empty()) {
+        const auto slash = rest.find('/');
+        const auto part = rest.substr(0, slash);
+        rest = slash == std::string_view::npos ? std::string_view{} : rest.substr(slash + 1);
+        if (part.empty() || part == ".") continue;
+        if (part == "..") {
+            if (!parts.empty() && parts.back() != "..") { parts.pop_back(); continue; }
+            if (!root.empty()) continue;               // nothing is above a root
+        }
+        parts.push_back(part);
+    }
+    std::string out = root;
+    for (std::size_t i = 0; i < parts.size(); ++i) {
+        if (i) out += '/';
+        out += parts[i];
+    }
+    if (out.empty()) out = ".";
+    return out;
+}
+
+std::string native(const std::filesystem::path& name) {
+    std::string g = generic(name);
+    if (host() == platform::windows) std::ranges::replace(g, '/', '\\');
+    return g;
+}
+
+bool is_absolute(const std::filesystem::path& name) {
+    const bool windows = host() == platform::windows;
+    const std::string g = generic(name);
+    const auto r = root_length(g, windows);
+    // `C:x' names a place relative to the drive's current directory: not absolute.
+    return windows ? r >= 3 || (r > 0 && g[0] == '/' && g.size() > 1 && g[1] == '/') : r == 1;
+}
+
+bool same(const std::filesystem::path& a, const std::filesystem::path& b) {
+    return fold_equal(generic(a), generic(b), conventions().case_insensitive_names);
+}
+
+bool within(const std::filesystem::path& name, const std::filesystem::path& directory) {
+    const bool fold = conventions().case_insensitive_names;
+    const std::string n = generic(name), d = generic(directory);
+    if (fold_equal(n, d, fold)) return true;
+    if (!same_prefix(n, d, fold)) return false;
+    return d.back() == '/' || n[d.size()] == '/';
 }
 
 bool names_a_place(std::string_view name) {
@@ -123,13 +200,13 @@ bool names_a_place(std::string_view name) {
 
 std::optional<located> locate(const std::filesystem::path& name) {
     const auto whole = mcpplibs::os::fs::absolute(name);
-    const std::string path = generic(whole.lexically_normal().generic_string());
+    const std::string path = slashed(whole.lexically_normal().generic_string());
     const bool fold = conventions().case_insensitive_names;
     std::optional<located> best;
     std::size_t best_len = 0;
     for (const auto& s : table()) {
         if (!s.dir.h || s.name.empty()) continue;
-        const std::string prefix = generic(s.name);
+        const std::string prefix = slashed(s.name);
         if (!same_prefix(path, prefix, fold)) continue;
         const bool root = separator(prefix.back());
         if (!root && path.size() > prefix.size() && !separator(path[prefix.size()])) continue;

@@ -39,6 +39,26 @@ std::vector<std::string> preopens();
 // the image runs upon.
 std::filesystem::path absolute(const std::filesystem::path& name);
 
+// NAMES IN THE HOST'S RULES, AND WITHOUT ASKING THE FILE SYSTEM. Each is lexical:
+// it reads the name and never the node, so a link is not followed and a name
+// that does not exist is answered as well as one that does (`identity_of' says
+// whether two names reach one node). All ask `host()'.
+//
+// `generic': the spelling every interface here reads --- `/' between
+// components, `\' read as one on Windows, `.' and `..' resolved, no trailing
+// separator; the root kept as written (`/', `C:/', `//server/share/').
+// `native': the same in the host's own separator, for a program's argument
+// vector or a person (`C:\Users\x').
+// `is_absolute': begins with a root (on Windows a drive and a separator, or
+// `//server/share'; `C:x' is relative to the drive's current directory).
+// `same': one spelling, compared without case where the host's names are.
+// `within': the name is the directory or beneath it, by components.
+std::string generic(const std::filesystem::path& name);
+std::string native(const std::filesystem::path& name);
+bool is_absolute(const std::filesystem::path& name);
+bool same(const std::filesystem::path& a, const std::filesystem::path& b);
+bool within(const std::filesystem::path& name, const std::filesystem::path& directory);
+
 // Whether a name says where a file is, rather than naming one to look for on a
 // list of directories: it holds a separator in the host's spelling (on Windows
 // `\' as well as `/', or a drive). Asked of `host()' for the reason above.
