@@ -8,11 +8,18 @@ import std;
 namespace mcpplibs::os::windows {
 
 bool elevated() {
+    using open_token = okos_bool (__stdcall*)(okos_handle, okos_dword, okos_handle*);
+    using token_information = okos_bool (__stdcall*)(okos_handle, int, void*, okos_dword, okos_dword*);
+    const okos_handle advapi = LoadLibraryW(L"advapi32.dll");
+    if (!advapi) return false;
+    const auto open = reinterpret_cast<open_token>(GetProcAddress(advapi, "OpenProcessToken"));
+    const auto query = reinterpret_cast<token_information>(GetProcAddress(advapi, "GetTokenInformation"));
+    if (!open || !query) return false;
     okos_handle token = nullptr;
-    if (!OpenProcessToken(GetCurrentProcess(), 0x0008 /* TOKEN_QUERY */, &token)) return false;
+    if (!open(GetCurrentProcess(), 0x0008 /* TOKEN_QUERY */, &token)) return false;
     okos_token_elevation e{};
     okos_dword got = 0;
-    const bool ok = GetTokenInformation(token, 20 /* TokenElevation */, &e, sizeof e, &got) != 0;
+    const bool ok = query(token, 20 /* TokenElevation */, &e, sizeof e, &got) != 0;
     CloseHandle(token);
     return ok && e.elevated != 0;
 }

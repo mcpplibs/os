@@ -25,7 +25,9 @@ __declspec(dllimport) okos_bool __stdcall DeviceIoControl(okos_handle, okos_dwor
 __declspec(dllimport) okos_bool __stdcall CloseHandle(okos_handle);
 __declspec(dllimport) okos_handle __stdcall GetCurrentProcess(void);
 __declspec(dllimport) okos_bool __stdcall IsWow64Process2(okos_handle, unsigned short*, unsigned short*);
-__declspec(dllimport) okos_bool __stdcall OpenProcessToken(okos_handle, okos_dword, okos_handle*);
-__declspec(dllimport) okos_bool __stdcall GetTokenInformation(okos_handle, int, void*, okos_dword, okos_dword*);
+// advapi32 is reached at run time, so that a program linking this package
+// links nothing beyond kernel32 for a question few programs ask.
+__declspec(dllimport) okos_handle __stdcall LoadLibraryW(const wchar_t*);
+__declspec(dllimport) void* __stdcall GetProcAddress(okos_handle, const char*);
 __declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned, okos_dword, const char*, int, wchar_t*, int);
 }
