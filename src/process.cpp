@@ -158,13 +158,13 @@ std::uint64_t process::id() const {
 result<process> process::spawn(const spawn_options& o) {
     // The program, by name or by its place.
     std::filesystem::path program = o.program;
-    if (!program.has_parent_path()) {
+    if (!fs::names_a_place(o.program.generic_string())) {
         auto found = env::find_executable(program.generic_string());
         if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", program.generic_string()) });
         program = *found;
     }
     std::error_code ec;
-    program = std::filesystem::absolute(program, ec).lexically_normal();
+    program = fs::absolute(program).lexically_normal();
     const auto where = fs::locate(program);
     if (!where) return std::unexpected(error{ errc::not_found,
         std::format("starting {}: beneath no directory this program was given", program.generic_string()) });

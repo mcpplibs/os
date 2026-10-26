@@ -39,6 +39,11 @@ std::vector<std::string> preopens();
 // the image runs upon.
 std::filesystem::path absolute(const std::filesystem::path& name);
 
+// Whether a name says where a file is, rather than naming one to look for on a
+// list of directories: it holds a separator in the host's spelling (on Windows
+// `\' as well as `/', or a drive). Asked of `host()' for the reason above.
+bool names_a_place(std::string_view name);
+
 // --- contents --------------------------------------------------------------
 
 result<std::string> read(const std::filesystem::path& file);

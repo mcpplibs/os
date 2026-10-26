@@ -117,7 +117,7 @@ std::optional<std::filesystem::path> find_executable(std::string_view name, std:
         std::ranges::stable_partition(suffixes, [](const std::string& x) { return x.empty() || x == ".exe" || x == ".com"; });
     }
     const std::filesystem::path given(name);
-    if (given.has_parent_path()) {
+    if (fs::names_a_place(name)) {
         for (const auto& s : suffixes) {
             auto candidate = given; candidate += s;
             if (is_program(candidate)) return candidate;

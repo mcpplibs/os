@@ -55,6 +55,12 @@ int main() {
     }
     check(os::fs::rename(file, dir / "b.txt", false).has_value(), "a rename that does not replace renames to a free name");
 
+    check(os::fs::names_a_place("bin/tool") && !os::fs::names_a_place("tool"),
+          "a name with a separator says where a file is, a bare one does not");
+    check(os::fs::names_a_place("C:tool") == (os::host() == os::platform::windows)
+              && os::fs::names_a_place("bin\\tool") == (os::host() == os::platform::windows),
+          "a drive and a backslash say where a file is on Windows and nowhere else");
+
     stdfs::remove_all(dir);
     return g_failures;
 }

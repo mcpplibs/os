@@ -114,6 +114,13 @@ std::filesystem::path absolute(const std::filesystem::path& name) {
     return std::filesystem::path(generic(cwd.generic_string()) + "/" + s);
 }
 
+bool names_a_place(std::string_view name) {
+    if (host() == platform::windows)
+        return name.find_first_of("/\\") != std::string_view::npos
+            || (name.size() >= 2 && std::isalpha(static_cast<unsigned char>(name[0])) && name[1] == ':');
+    return name.find('/') != std::string_view::npos;
+}
+
 std::optional<located> locate(const std::filesystem::path& name) {
     const auto whole = mcpplibs::os::fs::absolute(name);
     const std::string path = generic(whole.lexically_normal().generic_string());
