@@ -54,6 +54,7 @@ int main(int argc, char** argv) {
     {
         auto o = copy("echo");
         auto r = os::process::run(o, "hello");
+        if (!r) std::printf("  (the start of %s failed: %s)\n", o.program.string().c_str(), r.error().message().c_str());
         check(r && r->out == "hello", "a started program reads its input and writes its output");
         check(r && r->err == "err", "and its error output is collected beside");
         check(r && r->status.code == 7 && !r->status.by_environment, "and its status is the one it returned");
