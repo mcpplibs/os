@@ -272,6 +272,7 @@ result<capabilities> caps(const std::filesystem::path& directory) {
     c.locks             = (p & kal::fs::locks.bits) != 0;
     c.executable        = (p & kal::fs::executable.bits) != 0;
     c.atomic_rename     = (p & kal::fs::atomic_rename.bits) != 0;
+    c.remove_open       = (p & kal::fs::remove_open.bits) != 0;
     return c;
 }
 

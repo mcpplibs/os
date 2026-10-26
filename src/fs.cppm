@@ -75,6 +75,7 @@ struct capabilities {
     bool locks             = false;
     bool executable        = false;  // whether a node may be started is recorded
     bool atomic_rename     = false;
+    bool remove_open       = false;  // a name held open is removed at once
 };
 
 // Of the volume the directory is on.

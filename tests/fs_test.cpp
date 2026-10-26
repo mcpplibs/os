@@ -36,6 +36,8 @@ int main() {
     }
     auto again = os::fs::lock::acquire(dir / "lock", os::fs::lock::kind::exclusive, false);
     check(again.has_value(), "and is taken again once released");
+    // A lock held for the rest of the program: the directory is removed below
+    // while it is held, where the volume removes a held name at once.
 
     const auto s = os::fs::stamp_of(file);
     check(s && s->size == 3, "a stamp reports the size");
@@ -61,6 +63,13 @@ int main() {
               && os::fs::names_a_place("bin\\tool") == (os::host() == os::platform::windows),
           "a drive and a backslash say where a file is on Windows and nowhere else");
 
-    stdfs::remove_all(dir);
+    if (caps && caps->remove_open) {
+        std::error_code ec;
+        stdfs::remove_all(dir, ec);
+        check(!ec && !stdfs::exists(dir), "a directory holding a file held open is removed");
+    } else {
+        if (again) again->release();
+        stdfs::remove_all(dir);
+    }
     return g_failures;
 }
