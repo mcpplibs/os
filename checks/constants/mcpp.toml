@@ -1,0 +1,10 @@
+# The compile-time constants of a native target (R3; part 2 E29), checked when
+# the program is compiled. An ok image has neither `exe_suffix' nor a constant
+# `host()', so these facts are a build of their own on the native rows rather
+# than part of tests/platform_test.cpp, which is also built as an image.
+[package]
+name    = "os-check-constants"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }

@@ -1,4 +1,6 @@
-target/
+/target/
+/checks/*/target/
 compile_commands.json
 *.log
 mcpp.lock
+
