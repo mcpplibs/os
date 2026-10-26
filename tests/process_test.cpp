@@ -93,6 +93,10 @@ int child(std::string_view errand) {
         (void)d->write_original("document");
         return 0;
     }
+    if (errand == "end-closed") {
+        os::interrupt::end_as_output_closed();
+        return 5;   // where the system has no such ending
+    }
     if (errand == "sleep") {
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
@@ -240,6 +244,32 @@ int main(int argc, char** argv) {
         auto d = os::process::run(copy("divert"));
         check(d && d->out == "document" && d->err == "narration",
               "output sent to the error stream for a while, and the document to the output as it was");
+    }
+    {
+        // The command interpreter given a command with quotation marks, joined
+        // as it is; refused where a program receives a vector.
+        os::process::spawn_options o;
+        o.one_string = true;
+        if (os::host() == os::platform::windows) {
+            o.program = "cmd.exe";
+            o.args = { "/d", "/s", "/c", "\"echo \"a b\" && echo c\"" };
+            auto r = os::process::run(o);
+            check(r && r->out.find("\"a b\"") != std::string::npos && r->out.find('c') != std::string::npos,
+                  "the command interpreter runs a command with quotation marks as written");
+        } else {
+            o.program = again.front();
+            auto r = os::process::run(o);
+            check(!r && r.error().code == os::errc::not_supported,
+                  "a joined command line is refused where a program receives a vector");
+        }
+    }
+    if (!os::is_image) {
+        auto r = os::process::run(copy("end-closed"));
+        if (os::host() == os::platform::windows)
+            check(r && r->status.code == 5, "Windows has no ending for a closed reader, and the program goes on");
+        else
+            check(r && r->status.by_environment && r->status.shell_code() == 141,
+                  "a program ends as a closed reader ends it: 141 to a shell");
     }
     {
         auto me = os::process::self();

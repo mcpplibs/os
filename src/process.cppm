@@ -38,6 +38,12 @@ struct spawn_options {
     bool own_unit = false;
     // The program ends when this one ends, however this one ends.
     bool bound_lifetime = false;
+    // Where a program receives one string and splits it by rules of its own
+    // (Windows), the arguments are joined after the program's name as they are,
+    // unquoted: for the command interpreter, whose `/s /c' takes the rest of
+    // the line as a command of its own grammar (0.2.0, openkal 0.17.1).
+    // errc::not_supported where a program receives a vector.
+    bool one_string = false;
 };
 
 // How a program ended: the status it returned, or, ended by its environment

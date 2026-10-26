@@ -25,4 +25,16 @@ bool wait(std::optional<std::chrono::milliseconds> timeout = std::nullopt);
 // request, and then does nothing.
 void end_as_requested();
 
+// Ends this program as a system ends one whose output's reader is gone: by the
+// signal for it where the system has one (SIGPIPE, which a shell reports as
+// 141). Returns where the system has none: there a write to a closed stream is
+// refused and the program goes on (0.2.0). openkal reports a closed reader
+// instead of ending the program, so a program that wants the system's ending
+// asks for it after it has finished in order.
+void end_as_output_closed();
+
 }  // namespace mcpplibs::os::interrupt
+
+namespace mcpplibs::os::interrupt::sys {
+void end_as_output_closed();
+}  // namespace mcpplibs::os::interrupt::sys

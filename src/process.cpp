@@ -252,8 +252,12 @@ result<process> process::spawn(const spawn_options& o) {
 
     const kal_uintptr props = kal_process_props();
     const bool bind = o.bound_lifetime && (props & kal::process::bound_lifetime.bits) != 0;
+    if (o.one_string && (props & kal::process::one_string.bits) == 0)
+        return fail_streams(error{ errc::not_supported,
+            std::format("starting {}: a program here receives a vector, not one string", program.generic_string()) });
     kal_spawn how{ as_dir(where->directory), work, nullptr, nullptr, 0,
-                   bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 } };
+                   (bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 })
+                   | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 }) };
     kal_job job{};
     const bool unit = o.own_unit && (props & kal::process::job.bits) != 0;
     if (unit) how.job = &job;

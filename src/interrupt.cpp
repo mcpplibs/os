@@ -51,4 +51,6 @@ void end_as_requested() {
     kal_process_end_as_requested();
 }
 
+void end_as_output_closed() { sys::end_as_output_closed(); }
+
 }  // namespace mcpplibs::os::interrupt
