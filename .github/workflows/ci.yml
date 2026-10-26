@@ -1,0 +1,115 @@
+name: CI
+
+# What this workflow asserts about mcpplibs.os.
+#
+#   tests      every module behaves as stated, on every system and with every
+#              compiler family a consumer builds it with (the native rows)
+#   platform   a platform module used outside `if constexpr' for its platform
+#              fails to LINK, and the same use in a discarded branch links (R5)
+#
+# The library is built with the mcpp under cross-validation: until mcpp
+# 2026.10.26.2 is released, a unit with a module map that imports another
+# package's module through a third (`mcpplibs.os.terminal' through
+# `mcpplibs.os.error') does not compile under GCC (mcpp part 2 design §10.2),
+# so the mcpp named by MCPP_SOURCE_REF is built and used.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      mcpp_ref:
+        description: "Branch of mcpp-community/mcpp to build and test with (empty = the released mcpp)"
+        required: false
+        default: ""
+
+env:
+  MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || 'release/2026.10.26.2' }}
+  XLINGS_VERSION: v2026.10.26.1
+  XLINGS_NON_INTERACTIVE: '1'
+
+jobs:
+  native:
+    name: ${{ matrix.os }} ${{ matrix.toolchain }} ${{ matrix.profile }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04,     toolchain: 'gcc@16.1.0',  profile: dev }
+          - { os: ubuntu-24.04,     toolchain: 'gcc@16.1.0',  profile: release }
+          - { os: ubuntu-24.04,     toolchain: 'llvm@23.1.3', profile: dev }
+          - { os: ubuntu-24.04-arm, toolchain: 'gcc@16.1.0',  profile: dev }
+          - { os: macos-15,         toolchain: 'llvm@23.1.3', profile: dev }
+          - { os: windows-2022,     toolchain: 'llvm@23.1.3', profile: dev }
+          - { os: windows-2022,     toolchain: 'msvc@system', profile: dev }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xlings and mcpp (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh \
+            | bash -s "$XLINGS_VERSION"
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+
+      - name: Install xlings and mcpp (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://d2learn.org/xlings-install.ps1.txt | iex
+          "$env:USERPROFILE\.xlings\subos\current\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: The mcpp under cross-validation
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            xlings update > /dev/null 2>&1 || true
+            if xlings install mcpp -y -g; then break; fi
+            [ "$attempt" = 6 ] && { echo "::error::mcpp could not be installed"; exit 1; }
+            sleep 60
+          done
+          mcpp --version
+          mcpp self config --mirror GLOBAL
+          if [ -n "${MCPP_SOURCE_REF:-}" ]; then
+            src="$RUNNER_TEMP/mcpp-src"
+            git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
+            rm -f "$src/.xlings.json"
+            ( cd "$src" && mcpp build --release )
+            built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) | head -1)
+            [ -n "$built" ] || { echo "::error::mcpp did not build from $MCPP_SOURCE_REF"; exit 1; }
+            echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
+            echo "under review: $("$built" --version)  (from $MCPP_SOURCE_REF)"
+          fi
+
+      - name: Select the toolchain
+        run: |
+          spec='${{ matrix.toolchain }}'
+          case "$spec" in
+            msvc*) mcpp toolchain default msvc ;;
+            *)     mcpp toolchain install "${spec%@*}" "${spec#*@}"
+                   mcpp toolchain default "$spec" ;;
+          esac
+
+      - name: Tests
+        run: |
+          profile='${{ matrix.profile }}'
+          mcpp test --profile "$profile" 2>&1 | tee tests.log
+          for name in platform_test fs_test process_test ipc_test dirs_terminal_test; do
+            grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
+          done
+
+      - name: A platform module is a link error outside its platform, and links in a discarded branch (R5)
+        run: |
+          ( cd checks/discarded && mcpp build ) || { echo "::error::a discarded use of a platform module did not link"; exit 1; }
+          if ( cd checks/misuse && mcpp build ) > misuse.log 2>&1; then
+            cat misuse.log
+            echo "::error::a platform module used outside its platform linked"
+            exit 1
+          fi
+          grep -Eiq "undefined|unresolved" misuse.log || { cat misuse.log; echo "::error::the misuse failed for another reason than an undefined name"; exit 1; }
+          echo "  ok  the misuse fails at the link, naming what is undefined"

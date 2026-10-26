@@ -1,0 +1,6 @@
+[package]
+name    = "os-check-misuse"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }
