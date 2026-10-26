@@ -32,6 +32,13 @@ std::optional<located> locate(const std::filesystem::path& name);
 // The supplied directories' names, in openkal's order.
 std::vector<std::string> preopens();
 
+// A name made absolute in the host's spelling: one absolute already is kept (on
+// Windows a drive and a separator, or two separators; elsewhere a leading `/'),
+// and another is joined to the working directory. Asked of `host()' and not of
+// the standard library, whose answer in an ok image is POSIX's whatever system
+// the image runs upon.
+std::filesystem::path absolute(const std::filesystem::path& name);
+
 // --- contents --------------------------------------------------------------
 
 result<std::string> read(const std::filesystem::path& file);

@@ -100,11 +100,23 @@ result<void> write_all(kal_file f, std::string_view bytes, std::string_view doin
 
 }  // namespace
 
-std::optional<located> locate(const std::filesystem::path& name) {
+std::filesystem::path absolute(const std::filesystem::path& name) {
+    const std::string s = name.generic_string();
+    const bool windows = host() == platform::windows;
+    const bool already = windows
+        ? (s.size() >= 3 && std::isalpha(static_cast<unsigned char>(s[0])) && s[1] == ':' && separator(s[2]))
+              || (s.size() >= 2 && separator(s[0]) && separator(s[1]))
+        : !s.empty() && s[0] == '/';
+    if (already) return name;
     std::error_code ec;
-    auto absolute = std::filesystem::absolute(name, ec);
-    if (ec) absolute = name;
-    const std::string path = generic(absolute.lexically_normal().generic_string());
+    const auto cwd = std::filesystem::current_path(ec);
+    if (ec) return name;
+    return std::filesystem::path(generic(cwd.generic_string()) + "/" + s);
+}
+
+std::optional<located> locate(const std::filesystem::path& name) {
+    const auto whole = mcpplibs::os::fs::absolute(name);
+    const std::string path = generic(whole.lexically_normal().generic_string());
     const bool fold = conventions().case_insensitive_names;
     std::optional<located> best;
     std::size_t best_len = 0;

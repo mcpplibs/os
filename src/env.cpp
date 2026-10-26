@@ -61,8 +61,10 @@ std::vector<std::string> self_command() {
     std::vector<std::string> out;
     const auto program = loader();
     const auto own = image();
-    if (program) out.push_back(program->string());
-    if (own && (!program || *own != *program)) out.push_back(own->string());
+    // Absolute, so that the command starts the program from any directory: an
+    // image is named as its loader was given it, which may be relative.
+    if (program) out.push_back(fs::absolute(*program).string());
+    if (own && (!program || *own != *program)) out.push_back(fs::absolute(*own).string());
     return out;
 }
 

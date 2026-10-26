@@ -113,7 +113,8 @@ int main(int argc, char** argv) {
         check(me && me->id != 0, "this program has an identifier");
         check(me && os::process::alive(*me), "and is alive");
     }
-    check(os::env::find_executable(self->filename().string(), self->parent_path().string()).has_value(),
+    const auto whole = os::fs::absolute(*self);
+    check(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value(),
           "a program is found by name in a list of directories");
     return g_failures;
 }
