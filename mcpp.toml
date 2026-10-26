@@ -62,7 +62,7 @@ sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
 # The tests of this package, built as images, carry the C library and the C++
 # run-time an image holds, and the loader that runs them.
 [target.'cfg(os = "openkal")'.dev-dependencies]
-openkal-llvm-runtime = { git = "https://github.com/mcpplibs/openkal-llvm-runtime.git", branch = "openkal-0.17.0" }
+openkal-llvm-runtime = "0.16.0"
 
 [target.'cfg(os = "openkal")'.build-dependencies]
-openkal-tools = { git = "https://github.com/mcpplibs/openkal-image.git", branch = "openkal-0.17.0", tools = ["okld", "okrun"] }
+openkal-tools = { version = "0.1.0", tools = ["okld", "okrun"] }

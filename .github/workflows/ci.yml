@@ -149,8 +149,6 @@ jobs:
           built=$(find "$src/target" -type f -name mcpp | head -1)
           [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
           echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
-      - name: The run-time and the stack beneath it, from the same-named branch
-        run: bash tools/image-graph.sh openkal-0.17.0
       - name: The suites, run here and built for the other architecture
         run: |
           set -euo pipefail
