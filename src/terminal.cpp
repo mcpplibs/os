@@ -48,6 +48,8 @@ bool color(stream s) {
     return interactive(s) && sequences(s);
 }
 
+bool foreground() { return interactive(stream::in) && sys::foreground(); }
+
 result<raw_mode> raw_mode::enter(raw_options options) {
     const kal_stream in = kal_stdin();
     kal_uintptr previous = 0;
