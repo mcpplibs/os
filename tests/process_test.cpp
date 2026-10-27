@@ -79,6 +79,11 @@ int child(std::string_view errand) {
         return 7;
     }
     if (errand == "wait-input") {
+        // Started: the starter writes nothing until it reads this, so the
+        // reads below begin before any input can arrive however long the
+        // system takes to start a program.
+        (void)os::stdio::write_output("ready\n");
+        (void)os::stdio::flush_output();
         // A zero bound asks without waiting.
         const auto asked = std::chrono::steady_clock::now();
         auto zero = os::stdio::read_input_for(std::chrono::milliseconds(0));
@@ -251,13 +256,18 @@ int main(int argc, char** argv) {
         o.out = os::process::stdio::pipe;
         auto p = os::process::process::spawn(o);
         if (p) {
+            std::string out;
+            while (out.find('\n') == std::string::npos) {
+                auto c = p->read_output();
+                if (!c || c->empty()) break;
+                out += *c;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(400));
             (void)p->write("late");
             p->close_input();
-            std::string out;
             for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; out += *c; }
             auto st = p->wait();
-            const bool held = st && st->code == 0 && out == "late";
+            const bool held = st && st->code == 0 && out == "ready\nlate";
             if (!held)
                 std::printf("  (the copy ended with %d and wrote '%s')\n", st ? st->code : -1, out.c_str());
             check(held, "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
