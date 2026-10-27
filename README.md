@@ -119,8 +119,10 @@ name's spelling is the host's as well: `os::fs::absolute()` and
 `os::fs::names_a_place()` read `C:\x` and `bin\x` as Windows does when the
 image runs there, where the standard library inside an image reads names as
 POSIX does. The
-image carries its C library and C++ run-time (`openkal-llvm-runtime`); the
-tests are built as images in CI and run through okrun on four systems, and
+image carries its C library and C++ run-time, which with the loader are the
+image's platform's (openkal-platform, selected by mcpp 2026.10.27.1 and later
+for `<arch>-openkal`; this package declares none of them); the tests are built
+as images in CI and run through okrun on four systems, and
 `checks/constants` holds the compile-time facts of a native target.
 
 ## License

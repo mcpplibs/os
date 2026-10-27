@@ -90,10 +90,6 @@ sources = ["src/windows/posix/stdio.cpp"]
 [target.'cfg(os = "openkal")'.build]
 sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
 
-# The tests of this package, built as images, carry the C library and the C++
-# run-time an image holds, and the loader that runs them.
-[target.'cfg(os = "openkal")'.dev-dependencies]
-openkal-llvm-runtime = "0.16.3"
-
-[target.'cfg(os = "openkal")'.build-dependencies]
-openkal-tools = { version = "0.1.1", tools = ["okld", "okrun"] }
+# The C library, the C++ run-time and the loader of an image are its
+# platform's: mcpp 2026.10.27.1 and later select openkal-platform for
+# `<arch>-openkal` (mcpp SPEC-013), so this package declares none of them.

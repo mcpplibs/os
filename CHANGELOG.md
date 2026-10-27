@@ -2,6 +2,12 @@
 
 ## 0.2.1
 
+- **The ok-image targets take their C library, C++ run-time and loader from
+  their platform.** `[target.'cfg(os = "openkal")']` no longer declares
+  openkal-llvm-runtime or openkal-tools: mcpp 2026.10.27.1 selects
+  openkal-platform for `<arch>-openkal` (mcpp SPEC-013). CI finds the runner
+  through `mcpp toolchain install --target` and `mcpp self env --target`.
+
 The package builds and its tests pass in every arrangement of the program's C
 library on Linux, macOS and Windows: the system's own (glibc, libSystem, the
 Microsoft C runtime), and a C library that sits on openkal (openkal-musl with
