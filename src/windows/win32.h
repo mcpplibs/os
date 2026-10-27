@@ -29,5 +29,10 @@ __declspec(dllimport) okos_bool __stdcall IsWow64Process2(okos_handle, unsigned 
 // links nothing beyond kernel32 for a question few programs ask.
 __declspec(dllimport) okos_handle __stdcall LoadLibraryW(const wchar_t*);
 __declspec(dllimport) void* __stdcall GetProcAddress(okos_handle, const char*);
+// mcpplibs.os.library.
+__declspec(dllimport) okos_bool __stdcall FreeLibrary(okos_handle);
+__declspec(dllimport) okos_handle __stdcall GetModuleHandleW(const wchar_t*);
+__declspec(dllimport) okos_dword __stdcall GetLastError(void);
+__declspec(dllimport) okos_bool __stdcall K32EnumProcessModules(okos_handle, okos_handle*, okos_dword, okos_dword*);
 __declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned, okos_dword, const char*, int, wchar_t*, int);
 }

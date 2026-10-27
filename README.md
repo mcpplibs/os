@@ -30,8 +30,9 @@ int main() {
 | a program | its domain | — |
 
 The kernel layer is openkal and only openkal. Native code in this package serves only
-what is not a kernel question: the machine beneath the system (`machine`), and the platform
-modules.
+what is not a kernel question: the machine beneath the system (`machine`), the dynamic
+loader (`library`: the C library's on Linux and macOS, kernel32's on Windows), and the
+platform modules.
 
 ## Modules
 
@@ -50,6 +51,7 @@ modules.
 | `mcpplibs.os.net` | loopback TCP |
 | `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
+| `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
 | `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined only on their own |
 
 ## Rules
