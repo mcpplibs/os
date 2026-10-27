@@ -21,7 +21,7 @@ openkal-linux = "0.18.2"
 openkal-macos = "0.15.1"
 
 [target.windows.dependencies]
-openkal-windows = "0.13.2"
+openkal-windows = "0.13.3"
 
 [targets.os]
 kind = "lib"
@@ -62,7 +62,7 @@ sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
 # The tests of this package, built as images, carry the C library and the C++
 # run-time an image holds, and the loader that runs them.
 [target.'cfg(os = "openkal")'.dev-dependencies]
-openkal-llvm-runtime = "0.16.2"
+openkal-llvm-runtime = "0.16.3"
 
 [target.'cfg(os = "openkal")'.build-dependencies]
-openkal-tools = { version = "0.1.0", tools = ["okld", "okrun"] }
+openkal-tools = { version = "0.1.1", tools = ["okld", "okrun"] }
