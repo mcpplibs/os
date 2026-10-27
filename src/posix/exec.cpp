@@ -3,6 +3,7 @@
 // waiter sees is the program's.
 module;
 #include <cerrno>
+#include <signal.h>
 #include <unistd.h>
 
 module mcpplibs.os.process;
@@ -24,6 +25,15 @@ result<void> replace_image(const std::filesystem::path& program,
     if (!cwd.empty() && ::chdir(cwd.c_str()) != 0)
         return std::unexpected(error{ errc::not_found, std::format(
             "entering {}: {}", cwd.generic_string(), std::generic_category().message(errno)) });
+    // SIGPIPE AT ITS DEFAULT, AS A SHELL STARTS A PROGRAM. openkal ignores it in
+    // this program so that a write to a closed reader is reported rather than
+    // fatal, and an ignored disposition survives execve: the program this one
+    // becomes would begin with it ignored, and `yes | head' inside it would
+    // report a write error instead of ending. A handler is reset by execve, an
+    // ignore is not, so the ignore is undone here.
+    struct sigaction pipe_default {};
+    pipe_default.sa_handler = SIG_DFL;
+    ::sigaction(SIGPIPE, &pipe_default, nullptr);
     ::execve(program.c_str(), args.data(), envp.data());
     const int e = errno;
     return std::unexpected(error{ e == ENOENT ? errc::not_found : e == EACCES ? errc::permission : errc::io,
