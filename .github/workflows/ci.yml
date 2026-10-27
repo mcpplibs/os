@@ -136,13 +136,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The system's own triple; on macOS and Windows named, as a program in
+        # this arrangement names it: a Windows host defaults to the MSVC target,
+        # and openkal's Windows implementation is reached through the GNU one.
         include:
-          - { os: ubuntu-24.04,     profile: dev }
-          - { os: ubuntu-24.04,     profile: release }
-          - { os: ubuntu-24.04-arm, profile: dev }
-          - { os: macos-15,         profile: dev }
-          - { os: windows-2022,     profile: dev }
-          - { os: windows-2022,     profile: release }
+          - { os: ubuntu-24.04,     target: '',                           profile: dev }
+          - { os: ubuntu-24.04,     target: '',                           profile: release }
+          - { os: ubuntu-24.04-arm, target: '',                           profile: dev }
+          - { os: macos-15,         target: '--target aarch64-macos',     profile: dev }
+          - { os: windows-2022,     target: '--target x86_64-windows-gnu', profile: dev }
+          - { os: windows-2022,     target: '--target x86_64-windows-gnu', profile: release }
     defaults:
       run:
         shell: bash
@@ -196,7 +199,7 @@ jobs:
         working-directory: checks/hosted
         run: |
           profile='${{ matrix.profile }}'
-          mcpp test --profile "$profile" 2>&1 | tee tests.log
+          mcpp test --profile "$profile" ${{ matrix.target }} 2>&1 | tee tests.log
           for name in platform_test fs_test process_test ipc_test dirs_terminal_test linux_test library_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
           done
