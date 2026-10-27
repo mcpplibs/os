@@ -15,13 +15,13 @@ repo        = "https://github.com/mcpplibs/os"
 openkal = { git = "https://github.com/mcpplibs/openkal.git", branch = "openkal-0.17.1" }
 
 [target.linux.dependencies]
-openkal-linux = "0.18.0"
+openkal-linux = { git = "https://github.com/mcpplibs/openkal-linux.git", branch = "openkal-0.17.1" }
 
 [target.macos.dependencies]
-openkal-macos = "0.15.0"
+openkal-macos = { git = "https://github.com/mcpplibs/openkal-macos.git", branch = "openkal-0.17.1" }
 
 [target.windows.dependencies]
-openkal-windows = { git = "https://github.com/mcpplibs/openkal-windows.git", branch = "openkal-windows-0.13.1" }
+openkal-windows = { git = "https://github.com/mcpplibs/openkal-windows.git", branch = "openkal-0.17.1" }
 
 [targets.os]
 kind = "lib"
