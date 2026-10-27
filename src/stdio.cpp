@@ -53,7 +53,10 @@ result<void> flush_output() {
 
 result<std::optional<std::string>> read_input_for(std::chrono::milliseconds timeout, std::size_t at_most) {
     std::string out(at_most, '\0');
-    const auto ns = static_cast<kal_u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count());
+    // openkal reads a bound of zero as no bound; a zero timeout here asks
+    // without waiting, as the reads of a started program's streams do.
+    const auto count = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout).count();
+    const auto ns = static_cast<kal_u64>(count < 1 ? 1 : count);
     const kal_intptr n = kal_timeout_read(kal_stdin(), out.data(), out.size(), ns);
     if (n < 0) {
         const int code = static_cast<int>(-n);

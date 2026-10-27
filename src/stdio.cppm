@@ -22,8 +22,8 @@ result<void> write_error(std::string_view bytes);
 result<void> flush_output();
 
 // One chunk of input that arrives within `timeout'; nothing when none did,
-// empty at the end of input (0.2.0). errc::not_supported where the input
-// cannot be read with a bound.
+// empty at the end of input (0.2.0). A zero timeout asks without waiting.
+// errc::not_supported where the input cannot be read with a bound.
 result<std::optional<std::string>> read_input_for(std::chrono::milliseconds timeout,
                                                   std::size_t at_most = 65536);
 

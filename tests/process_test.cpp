@@ -79,6 +79,11 @@ int child(std::string_view errand) {
         return 7;
     }
     if (errand == "wait-input") {
+        // A zero bound asks without waiting.
+        const auto asked = std::chrono::steady_clock::now();
+        auto zero = os::stdio::read_input_for(std::chrono::milliseconds(0));
+        if (zero && zero->has_value()) return 6;
+        if (std::chrono::steady_clock::now() - asked > std::chrono::seconds(2)) return 7;
         // Nothing arrives within the bound; then the input arrives and is read.
         auto none = os::stdio::read_input_for(std::chrono::milliseconds(100));
         if (none && none->has_value()) return 2;
@@ -252,7 +257,7 @@ int main(int argc, char** argv) {
             std::string out;
             for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; out += *c; }
             auto st = p->wait();
-            check(st && st->code == 0 && out == "late", "a bounded read of input expires, then reads what arrives");
+            check(st && st->code == 0 && out == "late", "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
         }
         auto d = os::process::run(copy("divert"));
         check(d && d->out == "document" && d->err == "narration",
