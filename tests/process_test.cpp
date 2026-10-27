@@ -257,7 +257,10 @@ int main(int argc, char** argv) {
             std::string out;
             for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; out += *c; }
             auto st = p->wait();
-            check(st && st->code == 0 && out == "late", "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
+            const bool held = st && st->code == 0 && out == "late";
+            if (!held)
+                std::printf("  (the copy ended with %d and wrote '%s')\n", st ? st->code : -1, out.c_str());
+            check(held, "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
         }
         auto d = os::process::run(copy("divert"));
         check(d && d->out == "document" && d->err == "narration",
