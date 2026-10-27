@@ -19,7 +19,7 @@ struct place { kal_dir dir{}; bool owned = false; std::string doing; };
 // The directory, opened, for a name to be bound in it.
 result<place> directory_of(const std::filesystem::path& d, std::string_view name, std::string_view verb) {
     place p;
-    p.doing = std::format("{} {} in {}", verb, name, d.generic_string());
+    p.doing = std::format("{} {} in {}", verb, name, fs::generic_utf8(d));
     auto l = fs::locate(d);
     if (!l) return std::unexpected(error{ errc::not_found, p.doing + ": beneath no directory this program was given" });
     p.dir = kal_dir{ static_cast<kal_uintptr>(l->directory) };
@@ -131,7 +131,7 @@ result<listener> listener::listen(const std::filesystem::path& directory, std::s
     if (rc != kal_ok) return std::unexpected(from_kal(rc, doing));
     listener out;
     out.listener_ = static_cast<std::uintptr_t>(l.h);
-    out.where_ = directory / std::filesystem::path(std::string(name));
+    out.where_ = directory / fs::from_utf8(name);
     return out;
 }
 

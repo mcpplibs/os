@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.1.0" }
+os = { namespace = "mcpplibs", version = "0.1.1" }
 ```
 
 ```cpp
@@ -68,6 +68,11 @@ modules.
   is not an odr-use, so it links. CI asserts both.
 - **R6.** Where openkal is not in its shared form, this package's resources do not cross a
   shared-object boundary.
+- **R7.** A name reaches the system as UTF-8 and comes back as UTF-8 on every host, never
+  through the process's code page. `path::string()` and `path(std::string)` use the ANSI code
+  page on Windows, where a name the code page cannot spell throws and one it can is not UTF-8.
+  `os::fs::utf8()`, `generic_utf8()` and `from_utf8()` are the conversions, and the package uses
+  nothing else. The tests write, read and rename names in four scripts.
 
 Interface units import `std` and contain no system header and no macro. Implementation units
 on openkal import only `openkal.*`. The Windows units declare the functions they call

@@ -39,6 +39,14 @@ std::vector<std::string> preopens();
 // the image runs upon.
 std::filesystem::path absolute(const std::filesystem::path& name);
 
+// A name's text in UTF-8 and back, never through the process's code page.
+// UTF-8 is what openkal's names are on every system; `path::string()` and
+// `path(std::string)` use the ANSI code page on Windows, where a name it
+// cannot spell throws and one it can is not UTF-8.
+std::string utf8(const std::filesystem::path& name);
+std::string generic_utf8(const std::filesystem::path& name);  // with '/' separators
+std::filesystem::path from_utf8(std::string_view text);
+
 // NAMES IN THE HOST'S RULES, AND WITHOUT ASKING THE FILE SYSTEM. Each is lexical:
 // it reads the name and never the node, so a link is not followed and a name
 // that does not exist is answered as well as one that does (`identity_of' says

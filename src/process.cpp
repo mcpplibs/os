@@ -163,27 +163,27 @@ result<process> process::spawn(const spawn_options& o) {
         return std::unexpected(error{ errc::invalid, "a program's input cannot be this program's error output" });
     // The program, by name or by its place.
     std::filesystem::path program = o.program;
-    if (!fs::names_a_place(o.program.generic_string())) {
-        auto found = env::find_executable(program.generic_string());
-        if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", program.generic_string()) });
+    if (!fs::names_a_place(fs::generic_utf8(o.program))) {
+        auto found = env::find_executable(fs::generic_utf8(program));
+        if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", fs::generic_utf8(program)) });
         program = *found;
     }
     std::error_code ec;
     program = fs::absolute(program).lexically_normal();
     const auto where = fs::locate(program);
     if (!where) return std::unexpected(error{ errc::not_found,
-        std::format("starting {}: beneath no directory this program was given", program.generic_string()) });
+        std::format("starting {}: beneath no directory this program was given", fs::generic_utf8(program)) });
 
     const auto cwd_path = o.cwd.empty() ? std::filesystem::current_path(ec) : o.cwd;
     const auto cwd = fs::locate(cwd_path);
     if (!cwd) return std::unexpected(error{ errc::not_found,
         std::format("starting {}: {} is beneath no directory this program was given",
-                    program.generic_string(), cwd_path.generic_string()) });
+                    fs::generic_utf8(program), fs::generic_utf8(cwd_path)) });
     kal_dir work = as_dir(cwd->directory);
     bool close_work = false;
     if (cwd->relative != ".") {
         if (const int rc = kal_fs_open_dir(work, cwd->relative.data(), cwd->relative.size(), &work); rc != kal_ok)
-            return std::unexpected(from_kal(rc, std::format("starting {} in {}", program.generic_string(), cwd_path.generic_string())));
+            return std::unexpected(from_kal(rc, std::format("starting {} in {}", fs::generic_utf8(program), fs::generic_utf8(cwd_path))));
         close_work = true;
     }
     struct closer { kal_dir d; bool on; ~closer() { if (on) kal_fs_close_dir(d); } } work_guard{ work, close_work };
@@ -234,7 +234,7 @@ result<process> process::spawn(const spawn_options& o) {
 
     // The vector, the first element in the system's own spelling: a program
     // that reads its own command line takes a forward slash for a switch.
-    std::string first = o.argv0.value_or(program.string());
+    std::string first = o.argv0.value_or(fs::utf8(program));
     if (!o.argv0 && host() == platform::windows) std::ranges::replace(first, '/', '\\');
     std::vector<std::string> argv_storage{ std::move(first) };
     for (const auto& a : o.args) argv_storage.push_back(a);
@@ -264,7 +264,7 @@ result<process> process::spawn(const spawn_options& o) {
         if (n.file.h) kal_fs_close_file(n.file);
         else if (n.channel && n.child.h) kal_process_channel_close(n.child);
     }
-    if (rc != kal_ok) return fail_streams(from_kal(rc, std::format("starting {}", program.generic_string())));
+    if (rc != kal_ok) return fail_streams(from_kal(rc, std::format("starting {}", fs::generic_utf8(program))));
     if (unit) { s->job = job; s->has_job = true; }
     process p;
     p.state_ = std::move(s);

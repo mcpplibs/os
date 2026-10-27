@@ -1,7 +1,7 @@
 [package]
 namespace   = "mcpplibs"
 name        = "os"
-version     = "0.1.0"
+version     = "0.1.1"
 description = "mcpplibs.os: a C++ operating-system library over openkal --- processes, files, environment, terminals, directories and local IPC, with compile-time platform constants and a few platform modules."
 license     = "Apache-2.0"
 authors     = ["mcpplibs"]

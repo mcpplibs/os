@@ -91,6 +91,25 @@ int main() {
         check(os::env::split_list(os::env::join_list(dirs)).size() == 2, "and joining is its inverse");
     }
 
+    {
+        // Names the Windows code page cannot spell, both ways through the
+        // system: UTF-8 in and out on every host, never the ANSI code page.
+        const std::string name = "\xE4\xB8\xAD\xE6\x96\x87 \xE3\x81\xAB\xE3\x81\xBB\xE3\x82\x93 \xD0\xBA\xD0\xB8\xD1\x80 \xE0\xA4\x95";
+        check(os::fs::utf8(os::fs::from_utf8(name)) == name, "a UTF-8 name survives the trip through a path");
+        const auto sub = dir / os::fs::from_utf8(name);
+        stdfs::create_directories(sub);
+        const auto f = sub / os::fs::from_utf8(name + ".txt");
+        check(os::fs::write(f, "\xE4\xBD\xA0\xE5\xA5\xBD").has_value(), "a file whose name is not ASCII is written");
+        check(os::fs::read(f).value_or("") == "\xE4\xBD\xA0\xE5\xA5\xBD", "and read back");
+        check(stdfs::exists(f), "and the system sees it under that name");
+        check(os::fs::write_atomic(f, "again").has_value() && os::fs::read(f).value_or("") == "again", "replaced all at once");
+        const auto moved = sub / os::fs::from_utf8("\xE6\x96\xB0 " + name);
+        check(os::fs::rename(f, moved, false).has_value() && stdfs::exists(moved), "and renamed");
+        const auto missing = os::fs::read(sub / os::fs::from_utf8("\xE6\xB2\xA1\xE6\x9C\x89"));
+        check(!missing && missing.error().message().contains("\xE6\xB2\xA1\xE6\x9C\x89"), "an error names the file in UTF-8");
+        check(os::fs::generic_utf8(os::fs::absolute(sub)).ends_with(name), "absolute keeps the name");
+    }
+
     if (caps && caps->remove_open) {
         std::error_code ec;
         stdfs::remove_all(dir, ec);
