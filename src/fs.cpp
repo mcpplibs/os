@@ -65,7 +65,7 @@ struct opened_file {
 result<located> where(const std::filesystem::path& p, std::string_view doing) {
     auto l = locate(p);
     if (!l) return std::unexpected(error{ errc::not_found,
-        std::format("{} {}: beneath no directory this program was given", doing, p.generic_string()) });
+        std::format("{} {}: beneath no directory this program was given", doing, generic_utf8(p)) });
     return *l;
 }
 
@@ -100,8 +100,22 @@ result<void> write_all(kal_file f, std::string_view bytes, std::string_view doin
 
 }  // namespace
 
+std::string utf8(const std::filesystem::path& name) {
+    const std::u8string u = name.u8string();
+    return std::string(u.begin(), u.end());
+}
+
+std::string generic_utf8(const std::filesystem::path& name) {
+    const std::u8string u = name.generic_u8string();
+    return std::string(u.begin(), u.end());
+}
+
+std::filesystem::path from_utf8(std::string_view text) {
+    return std::filesystem::path(std::u8string(text.begin(), text.end()));
+}
+
 std::filesystem::path absolute(const std::filesystem::path& name) {
-    const std::string s = name.generic_string();
+    const std::string s = generic_utf8(name);
     const bool windows = host() == platform::windows;
     const bool already = windows
         ? (s.size() >= 3 && std::isalpha(static_cast<unsigned char>(s[0])) && s[1] == ':' && separator(s[2]))
@@ -111,7 +125,7 @@ std::filesystem::path absolute(const std::filesystem::path& name) {
     std::error_code ec;
     const auto cwd = std::filesystem::current_path(ec);
     if (ec) return name;
-    return std::filesystem::path(slashed(cwd.generic_string()) + "/" + s);
+    return from_utf8(slashed(generic_utf8(cwd)) + "/" + s);
 }
 
 namespace {
@@ -139,7 +153,7 @@ bool fold_equal(std::string_view a, std::string_view b, bool fold) {
 
 std::string generic(const std::filesystem::path& name) {
     const bool windows = host() == platform::windows;
-    std::string s = name.generic_string();
+    std::string s = generic_utf8(name);
     if (windows) std::ranges::replace(s, '\\', '/');
     const std::size_t rootLen = root_length(s, windows);
     const std::string root = s.substr(0, rootLen);
@@ -200,7 +214,7 @@ bool names_a_place(std::string_view name) {
 
 std::optional<located> locate(const std::filesystem::path& name) {
     const auto whole = mcpplibs::os::fs::absolute(name);
-    const std::string path = slashed(whole.lexically_normal().generic_string());
+    const std::string path = slashed(generic_utf8(whole.lexically_normal()));
     const bool fold = conventions().case_insensitive_names;
     std::optional<located> best;
     std::size_t best_len = 0;
@@ -232,12 +246,12 @@ result<std::string> read(const std::filesystem::path& file) {
     opened_file f;
     const int rc = kal_fs_open(dir_of(*l), l->relative.data(), l->relative.size(),
                                kal::fs::open::read.bits, &f.f);
-    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("reading {}", file.generic_string())));
+    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("reading {}", generic_utf8(file))));
     std::string out;
     char buf[65536];
     for (;;) {
         const kal_intptr n = kal_stream_read(kal_fs_stream(f.f), buf, sizeof buf);
-        if (n < 0) return std::unexpected(from_kal(static_cast<int>(-n), std::format("reading {}", file.generic_string())));
+        if (n < 0) return std::unexpected(from_kal(static_cast<int>(-n), std::format("reading {}", generic_utf8(file))));
         if (n == 0) break;
         out.append(buf, static_cast<std::size_t>(n));
     }
@@ -250,8 +264,8 @@ result<void> write(const std::filesystem::path& file, std::string_view bytes) {
     opened_file f;
     const auto flags = kal::fs::open::write | kal::fs::open::create | kal::fs::open::truncate;
     const int rc = kal_fs_open(dir_of(*l), l->relative.data(), l->relative.size(), flags.bits, &f.f);
-    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("writing {}", file.generic_string())));
-    return write_all(f.f, bytes, std::format("writing {}", file.generic_string()));
+    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("writing {}", generic_utf8(file))));
+    return write_all(f.f, bytes, std::format("writing {}", generic_utf8(file)));
 }
 
 namespace {
@@ -278,7 +292,7 @@ result<std::string> write_beside(const located& l, std::string_view bytes, std::
 }  // namespace
 
 result<void> write_atomic(const std::filesystem::path& file, std::string_view bytes) {
-    const std::string doing = std::format("writing {}", file.generic_string());
+    const std::string doing = std::format("writing {}", generic_utf8(file));
     auto l = where(file, "writing");
     if (!l) return std::unexpected(l.error());
     auto temp = write_beside(*l, bytes, doing);
@@ -293,7 +307,7 @@ result<void> write_atomic(const std::filesystem::path& file, std::string_view by
 }
 
 result<published> publish(const std::filesystem::path& file, std::string_view bytes) {
-    const std::string doing = std::format("publishing {}", file.generic_string());
+    const std::string doing = std::format("publishing {}", generic_utf8(file));
     auto l = where(file, "publishing");
     if (!l) return std::unexpected(l.error());
     kal_dir parent{};
@@ -335,7 +349,7 @@ result<capabilities> caps(const std::filesystem::path& directory) {
     bool close = false;
     if (l->relative != ".") {
         const int rc = kal_fs_open_dir(dir_of(*l), l->relative.data(), l->relative.size(), &d);
-        if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("asking about {}", directory.generic_string())));
+        if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("asking about {}", generic_utf8(directory))));
         close = true;
     }
     const kal_uintptr p = kal_fs_props(d);
@@ -354,7 +368,7 @@ result<capabilities> caps(const std::filesystem::path& directory) {
 }
 
 result<lock> lock::acquire(const std::filesystem::path& file, kind k, bool wait) {
-    const std::string doing = std::format("locking {}", file.generic_string());
+    const std::string doing = std::format("locking {}", generic_utf8(file));
     auto l = where(file, "locking");
     if (!l) return std::unexpected(l.error());
     kal_file f{};
@@ -388,10 +402,10 @@ void lock::release() noexcept {
 
 result<void> create_link(const std::filesystem::path& target, const std::filesystem::path& link,
                          bool directory) {
-    const std::string doing = std::format("linking {} to {}", link.generic_string(), target.generic_string());
+    const std::string doing = std::format("linking {} to {}", generic_utf8(link), generic_utf8(target));
     auto l = where(link, "linking");
     if (!l) return std::unexpected(l.error());
-    const std::string t = target.generic_string();
+    const std::string t = generic_utf8(target);
     const int rc = kal_fs_link_create(dir_of(*l), l->relative.data(), l->relative.size(), t.data(), t.size(),
                                       directory ? kal::fs::link_directory : 0);
     if (rc != kal_ok) return std::unexpected(from_kal(rc, doing));
@@ -399,7 +413,7 @@ result<void> create_link(const std::filesystem::path& target, const std::filesys
 }
 
 result<std::string> read_link(const std::filesystem::path& link) {
-    const std::string doing = std::format("reading the link {}", link.generic_string());
+    const std::string doing = std::format("reading the link {}", generic_utf8(link));
     auto l = where(link, "reading the link");
     if (!l) return std::unexpected(l.error());
     std::string out(4096, '\0');
@@ -416,7 +430,7 @@ result<void> set_executable(const std::filesystem::path& file, bool executable) 
     auto l = where(file, "marking");
     if (!l) return std::unexpected(l.error());
     const int rc = kal_fs_set_executable_at(dir_of(*l), l->relative.data(), l->relative.size(), executable ? 1 : 0);
-    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("marking {}", file.generic_string())));
+    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("marking {}", generic_utf8(file))));
     return {};
 }
 
@@ -427,8 +441,8 @@ result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, st
     kal_node_info i{};
     i.self_size = sizeof i;
     const int rc = kal_fs_info(dir_of(*l), l->relative.data(), l->relative.size(), 0, wanted, &i);
-    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("{} {}", doing, node.generic_string())));
-    if (i.kind == kal_node_absent) return std::unexpected(error{ errc::not_found, std::format("{} {}", doing, node.generic_string()) });
+    if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("{} {}", doing, generic_utf8(node))));
+    if (i.kind == kal_node_absent) return std::unexpected(error{ errc::not_found, std::format("{} {}", doing, generic_utf8(node)) });
     return i;
 }
 }  // namespace
@@ -443,12 +457,12 @@ result<identity> identity_of(const std::filesystem::path& node) {
     auto i = info(node, kal::fs::field::identity, "asking about");
     if (!i) return std::unexpected(i.error());
     if ((i->present & kal::fs::field::identity) == 0)
-        return std::unexpected(error{ errc::not_supported, std::format("the identity of {}", node.generic_string()) });
+        return std::unexpected(error{ errc::not_supported, std::format("the identity of {}", generic_utf8(node)) });
     return identity{ i->identity[0], i->identity[1] };
 }
 
 result<void> rename(const std::filesystem::path& from, const std::filesystem::path& to, bool replace) {
-    const std::string doing = std::format("renaming {} to {}", from.generic_string(), to.generic_string());
+    const std::string doing = std::format("renaming {} to {}", generic_utf8(from), generic_utf8(to));
     auto a = where(from, "renaming");
     if (!a) return std::unexpected(a.error());
     auto b = where(to, "renaming");

@@ -3,6 +3,7 @@ module mcpplibs.os.dirs;
 import std;
 import mcpplibs.os.platform;
 import mcpplibs.os.env;
+import mcpplibs.os.fs;
 
 namespace mcpplibs::os::dirs {
 
@@ -10,12 +11,12 @@ namespace {
 std::optional<std::filesystem::path> var(std::string_view name) {
     auto v = env::get(name);
     if (!v || v->empty()) return std::nullopt;
-    return std::filesystem::path(*v);
+    return fs::from_utf8(*v);
 }
 std::optional<std::filesystem::path> under_home(std::string_view rest) {
     auto h = home();
     if (!h) return std::nullopt;
-    return *h / std::filesystem::path(rest);
+    return *h / fs::from_utf8(rest);
 }
 bool windows() { return host() == platform::windows; }
 bool macos() { return host() == platform::macos; }

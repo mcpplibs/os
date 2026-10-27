@@ -48,13 +48,13 @@ std::vector<std::string> arguments() {
 std::optional<std::filesystem::path> image() {
     auto s = counted([](char* o, kal_uintptr cap) { return kal_env_image(o, cap); });
     if (!s || s->empty()) return std::nullopt;
-    return std::filesystem::path(*s);
+    return fs::from_utf8(*s);
 }
 
 std::optional<std::filesystem::path> loader() {
     auto s = counted([](char* o, kal_uintptr cap) { return kal_env_loader(o, cap); });
     if (!s || s->empty()) return std::nullopt;
-    return std::filesystem::path(*s);
+    return fs::from_utf8(*s);
 }
 
 std::vector<std::string> self_command() {
@@ -63,8 +63,8 @@ std::vector<std::string> self_command() {
     const auto own = image();
     // Absolute, so that the command starts the program from any directory: an
     // image is named as its loader was given it, which may be relative.
-    if (program) out.push_back(fs::absolute(*program).string());
-    if (own && (!program || *own != *program)) out.push_back(fs::absolute(*own).string());
+    if (program) out.push_back(fs::utf8(fs::absolute(*program)));
+    if (own && (!program || *own != *program)) out.push_back(fs::utf8(fs::absolute(*own)));
     return out;
 }
 

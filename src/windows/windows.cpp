@@ -4,6 +4,7 @@ module;
 module mcpplibs.os.windows;
 
 import std;
+import mcpplibs.os.fs;
 
 namespace mcpplibs::os::windows {
 
@@ -25,7 +26,7 @@ bool elevated() {
 }
 
 std::optional<bool> on_dev_drive(const std::filesystem::path& directory) {
-    const std::string utf8 = directory.string();
+    const std::string utf8 = fs::utf8(directory);
     const int n = MultiByteToWideChar(65001, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
     if (n <= 0) return std::nullopt;
     std::wstring wide(static_cast<std::size_t>(n), L'\0');
