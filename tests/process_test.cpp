@@ -87,11 +87,22 @@ int child(std::string_view errand) {
         // A zero bound asks without waiting.
         const auto asked = std::chrono::steady_clock::now();
         auto zero = os::stdio::read_input_for(std::chrono::milliseconds(0));
-        if (zero && zero->has_value()) return 6;
+        if (zero && zero->has_value()) {
+            (void)os::stdio::write_output((*zero)->empty() ? std::string("<end>") : "<" + **zero + ">");
+            return 6;
+        }
         if (std::chrono::steady_clock::now() - asked > std::chrono::seconds(2)) return 7;
         // Nothing arrives within the bound; then the input arrives and is read.
         auto none = os::stdio::read_input_for(std::chrono::milliseconds(100));
-        if (none && none->has_value()) return 2;
+        if (none && none->has_value()) {
+            // What arrived where nothing should have, for the report.
+            (void)os::stdio::write_output((*none)->empty() ? std::string("<end>") : "<" + **none + ">");
+            return (*none)->empty() ? 8 : 2;
+        }
+        if (!none) {
+            (void)os::stdio::write_output("<" + none.error().message() + ">");
+            return 9;
+        }
         auto some = os::stdio::read_input_for(std::chrono::seconds(20));
         (void)os::stdio::write_output(some && some->has_value() ? **some : std::string("<none>"));
         return none ? 0 : 3;
