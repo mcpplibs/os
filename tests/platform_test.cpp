@@ -22,6 +22,11 @@ int main() {
     const auto system = os::env::system();
     check(system && *system == os::name(host), "openkal names the system the program runs upon");
     check(!os::machine::arch().empty(), "the machine's architecture is named");
+    // Linux translates no program to another processor's instructions: the
+    // machine is named as the processor this program runs on, whichever C
+    // library answers the program's other questions.
+    if constexpr (os::is_linux)
+        check(os::machine::arch() == os::name(os::ARCH), "Linux: the machine is the processor the program runs on");
     if constexpr (!os::is_image)
         check(os::machine::memory().value_or(0) > 0, "the machine's memory is known");
     const auto a = os::random::hex(16), b = os::random::hex(16);

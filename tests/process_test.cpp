@@ -253,7 +253,7 @@ int main(int argc, char** argv) {
         // program is replaced.
         const auto file = std::filesystem::temp_directory_path() / "os-not-a-program";
         { std::ofstream(file) << "this is not an executable format\n"; }
-        std::filesystem::permissions(file, std::filesystem::perms::owner_all);
+        check(os::fs::set_executable(file, true).has_value(), "the file is made executable");
         os::process::spawn_options o;
         o.program = file;
         o.in = o.out = o.err = os::process::stdio::inherit;
