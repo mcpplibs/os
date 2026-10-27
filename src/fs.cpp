@@ -481,7 +481,7 @@ result<void> rename(const std::filesystem::path& from, const std::filesystem::pa
 namespace mcpplibs::os::fs {
 
 result<void> append(const std::filesystem::path& file, std::string_view bytes) {
-    const std::string doing = std::format("appending to {}", file.generic_string());
+    const std::string doing = std::format("appending to {}", generic_utf8(file));
     auto l = where(file, "appending to");
     if (!l) return std::unexpected(l.error());
     opened_file f;
@@ -594,7 +594,7 @@ behaviour measure(const std::filesystem::path& directory) {
 }
 
 result<void> place(const std::filesystem::path& from, const std::filesystem::path& to) {
-    const std::string doing = std::format("placing {} as {}", from.generic_string(), to.generic_string());
+    const std::string doing = std::format("placing {} as {}", generic_utf8(from), generic_utf8(to));
     auto parent = to.parent_path();
     if (parent.empty()) parent = ".";
     const auto b = measure(parent);
@@ -630,7 +630,7 @@ result<void> place(const std::filesystem::path& from, const std::filesystem::pat
 }
 
 result<void> exchange(const std::filesystem::path& a, const std::filesystem::path& b) {
-    const std::string doing = std::format("exchanging {} and {}", a.generic_string(), b.generic_string());
+    const std::string doing = std::format("exchanging {} and {}", generic_utf8(a), generic_utf8(b));
     auto parent = b.parent_path();
     if (parent.empty()) parent = ".";
     if (measure(parent).exchange) {

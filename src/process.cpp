@@ -254,7 +254,7 @@ result<process> process::spawn(const spawn_options& o) {
     const bool bind = o.bound_lifetime && (props & kal::process::bound_lifetime.bits) != 0;
     if (o.one_string && (props & kal::process::one_string.bits) == 0)
         return fail_streams(error{ errc::not_supported,
-            std::format("starting {}: a program here receives a vector, not one string", program.generic_string()) });
+            std::format("starting {}: a program here receives a vector, not one string", fs::generic_utf8(program)) });
     kal_spawn how{ as_dir(where->directory), work, nullptr, nullptr, 0,
                    (bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 })
                    | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 }) };
@@ -401,13 +401,13 @@ result<void> exec(spawn_options o) {
         return std::unexpected(error{ errc::invalid,
             "a program this one becomes has this program's own streams" });
     std::filesystem::path program = o.program;
-    if (!fs::names_a_place(o.program.generic_string())) {
-        auto found = env::find_executable(program.generic_string());
-        if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", program.generic_string()) });
+    if (!fs::names_a_place(fs::generic_utf8(o.program))) {
+        auto found = env::find_executable(fs::generic_utf8(program));
+        if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", fs::generic_utf8(program)) });
         program = *found;
     }
     program = fs::absolute(program).lexically_normal();
-    std::vector<std::string> argv{ o.argv0.value_or(program.string()) };
+    std::vector<std::string> argv{ o.argv0.value_or(fs::utf8(program)) };
     for (const auto& a : o.args) argv.push_back(a);
     if (auto r = sys::replace_image(program, argv, environment_for(o), o.cwd);
         r || r.error().code != errc::not_supported)

@@ -23,13 +23,13 @@ result<void> sync(const std::filesystem::path& node) {
     if (h == invalid() || h == nullptr) {
         const auto e = GetLastError();
         return std::unexpected(error{ e == kFileNotFound ? errc::not_found : errc::io,
-            std::format("making {} durable: {}", node.generic_string(), std::system_category().message(static_cast<int>(e))),
+            std::format("making {} durable: {}", mcpplibs::os::fs::generic_utf8(node), std::system_category().message(static_cast<int>(e))),
             static_cast<int>(e) });
     }
     const bool ok = FlushFileBuffers(h) != 0;
     const auto e = GetLastError();
     CloseHandle(h);
-    if (!ok) return std::unexpected(error{ errc::io, std::format("making {} durable: {}", node.generic_string(),
+    if (!ok) return std::unexpected(error{ errc::io, std::format("making {} durable: {}", mcpplibs::os::fs::generic_utf8(node),
                                                                  std::system_category().message(static_cast<int>(e))),
                                            static_cast<int>(e) });
     return {};
@@ -44,7 +44,7 @@ std::string volume_type(const std::filesystem::path& directory) {
     wchar_t root[260] {}, name[260] {};
     if (!GetVolumePathNameW(directory.c_str(), root, 260)) return {};
     if (!GetVolumeInformationW(root, nullptr, 0, nullptr, nullptr, nullptr, name, 260)) return {};
-    return std::filesystem::path(name).string();
+    return mcpplibs::os::fs::utf8(std::filesystem::path(name));
 }
 
 owner owner_of(const std::filesystem::path& node) {
