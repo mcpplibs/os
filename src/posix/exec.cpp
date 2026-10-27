@@ -10,6 +10,7 @@ module mcpplibs.os.process;
 
 import std;
 import mcpplibs.os.error;
+import mcpplibs.os.platform;
 
 namespace mcpplibs::os::process::sys {
 
@@ -36,7 +37,12 @@ result<void> replace_image(const std::filesystem::path& program,
     ::sigaction(SIGPIPE, &pipe_default, nullptr);
     ::execve(program.c_str(), args.data(), envp.data());
     const int e = errno;
-    return std::unexpected(error{ e == ENOENT ? errc::not_found : e == EACCES ? errc::permission : errc::io,
+    // A file this machine cannot start: no image at all (ENOEXEC), or on
+    // macOS an image of another processor (EBADARCH 86, EBADMACHO 88), as
+    // openkal reports a refused start.
+    const bool not_program = e == ENOEXEC || (is_macos && (e == 86 || e == 88));
+    return std::unexpected(error{ not_program ? errc::not_program
+                                : e == ENOENT ? errc::not_found : e == EACCES ? errc::permission : errc::io,
         std::format("becoming {}: {}", program.generic_string(), std::generic_category().message(e)) });
 }
 

@@ -227,6 +227,19 @@ int main(int argc, char** argv) {
         check(r && r->out == "became" && r->status.code == 7,
               "a program that becomes another ends with that program's status and output");
     }
+    if constexpr (os::is_posix) {
+        // A file that is no image is refused as not a program, before this
+        // program is replaced.
+        const auto file = std::filesystem::temp_directory_path() / "os-not-a-program";
+        { std::ofstream(file) << "this is not an executable format\n"; }
+        std::filesystem::permissions(file, std::filesystem::perms::owner_all);
+        os::process::spawn_options o;
+        o.program = file;
+        o.in = o.out = o.err = os::process::stdio::inherit;
+        auto r = os::process::exec(o);
+        check(!r && r.error().code == os::errc::not_program, "a file that is no image is not a program to become");
+        std::filesystem::remove(file);
+    }
     if (!os::is_image) {
         auto o = copy("wait-input");
         o.in = os::process::stdio::pipe;
