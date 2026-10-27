@@ -122,6 +122,13 @@ int child(std::string_view errand) {
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
     }
+    if (errand == "flood") {
+        // More output than a bounded run keeps.
+        const std::string block(4096, 'x');
+        for (int i = 0; i < 64; ++i) (void)os::stdio::write_output(block);
+        (void)os::stdio::write_error("tail");
+        return 0;
+    }
     if (errand == "interrupt") {
         (void)os::stdio::write_output(os::interrupt::available() ? "armed\n" : "none\n");
         os::interrupt::wait(std::chrono::seconds(20));
@@ -191,6 +198,54 @@ int main(int argc, char** argv) {
             auto st = p->wait();
             check(st && !st->success(), "and the unit, ended, does not report success");
         }
+    }
+    {
+        // 0.2.1: a run with bounds keeps at most its limits, reads the rest and drops it.
+        os::process::bounds limits;
+        limits.out_limit = 10000;
+        auto r = os::process::run(copy("flood"), limits);
+        check(r && r->status.success() && r->out.size() == 10000 && r->out_truncated && !r->timed_out,
+              "a bounded run keeps an output to its limit and says it cut it");
+        check(r && r->err == "tail" && !r->err_truncated, "and keeps the other whole");
+    }
+    {
+        // 0.2.1: past its hard bound a program is ended, and the run says so.
+        os::process::bounds limits;
+        limits.hard = std::chrono::milliseconds(300);
+        limits.grace = std::chrono::milliseconds(300);
+        const auto began = std::chrono::steady_clock::now();
+        auto r = os::process::run(copy("sleep"), limits);
+        const auto took = std::chrono::steady_clock::now() - began;
+        check(r && r->timed_out && !r->status.success(), "a bounded run ends a program past its hard bound");
+        check(took < std::chrono::seconds(15), "and does not wait for it to end by itself");
+    }
+    {
+        // 0.2.1: a program that ends while what it left holds its output open.
+        auto o = copy("leave");
+        o.in = os::process::stdio::null;
+        os::process::bounds limits;
+        limits.drain = std::chrono::milliseconds(300);
+        auto r = os::process::run(o, limits);
+        check(r && r->status.success() && r->held_open, "a bounded run says an output was held open, and ends the unit");
+    }
+    if (os::host() == os::platform::linux && !os::is_image) {
+        // 0.2.1: the threads of a running program, each with its time.
+        const auto me = os::process::self();
+        const auto threads = me ? os::process::threads(me->id) : std::vector<os::process::thread_info>{};
+        check(!threads.empty() && std::ranges::any_of(threads, [&](const auto& t) { return t.id == me->id; }),
+              "the threads of this program are listed, its first among them");
+    }
+    {
+        // 0.2.1: `NAME=value' entries as a started program's environment.
+        const std::vector<std::string> entries{ "OS_TEST_VALUE=from-entries", "=C:", "NOEQUALS", "EMPTY=" };
+        const auto pairs = os::env::assignments(entries);
+        check(pairs.size() == 2 && pairs[0].first == "OS_TEST_VALUE" && pairs[0].second == "from-entries"
+              && pairs[1].first == "EMPTY" && pairs[1].second == "",
+              "entries become overrides; one without a name before its `=' is left out");
+        auto o = copy("env");
+        o.env = pairs;
+        auto r = os::process::run(o);
+        check(r && r->out == "from-entries", "and reach the program");
     }
     {
         auto r = os::process::run(copy("relay"));

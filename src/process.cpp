@@ -396,6 +396,106 @@ result<output> run(spawn_options options, std::string_view input) {
     return out;
 }
 
+namespace {
+// One output of a bounded run, read by a thread of its own in slices, so that
+// the run can stop it once the program has ended and the drain has passed.
+struct capture {
+    std::mutex  lock;
+    std::string data;
+    std::size_t limit = 0;
+    bool        truncated = false;
+};
+struct collection {
+    std::mutex              lock;
+    std::condition_variable changed;
+    int                     open = 2;
+    std::atomic<bool>       stop{ false };
+};
+constexpr std::chrono::milliseconds read_slice{ 50 };
+
+void collect(std::shared_ptr<process> p, std::shared_ptr<capture> into,
+             std::shared_ptr<collection> all, bool output) {
+    while (!all->stop.load(std::memory_order_relaxed)) {
+        auto chunk = output ? p->read_output_for(read_slice) : p->read_error_for(read_slice);
+        if (!chunk) break;               // the stream failed: nothing more arrives
+        if (!chunk->has_value()) continue;
+        if ((*chunk)->empty()) break;    // its end
+        std::lock_guard g(into->lock);
+        if (into->data.size() >= into->limit) { into->truncated = true; continue; }
+        const std::size_t room = into->limit - into->data.size();
+        if ((*chunk)->size() > room) {
+            into->data.append((*chunk)->data(), room);
+            into->truncated = true;
+        } else {
+            into->data += **chunk;
+        }
+    }
+    {
+        std::lock_guard g(all->lock);
+        --all->open;
+    }
+    all->changed.notify_all();
+}
+}  // namespace
+
+result<bounded_output> run(spawn_options options, const bounds& limits, std::string_view input) {
+    options.in = stdio::pipe;
+    options.out = stdio::pipe;
+    options.err = stdio::pipe;
+    options.own_unit = true;
+    const auto started = std::chrono::steady_clock::now();
+    auto spawned = process::spawn(options);
+    if (!spawned) return std::unexpected(spawned.error());
+    auto p = std::make_shared<process>(std::move(*spawned));
+    if (!input.empty()) (void)p->write(input);
+    p->close_input();
+
+    auto out = std::make_shared<capture>();
+    out->limit = limits.out_limit;
+    auto err = std::make_shared<capture>();
+    err->limit = limits.err_limit;
+    auto all = std::make_shared<collection>();
+    std::thread(collect, p, out, all, true).detach();
+    std::thread(collect, p, err, all, false).detach();
+
+    bounded_output result;
+    auto waited = p->wait_for(limits.hard);
+    if (!waited) return std::unexpected(waited.error());
+    if (!waited->has_value()) {
+        result.timed_out = true;
+        p->terminate();                                   // asked
+        (void)p->wait_for(limits.grace);
+        p->end_unit();
+        auto ended = p->wait();
+        result.status = ended ? *ended : exit_status{ -1, true };
+    } else {
+        result.status = **waited;
+    }
+    {
+        std::unique_lock g(all->lock);
+        all->changed.wait_for(g, limits.drain, [&] { return all->open == 0; });
+        result.held_open = all->open != 0;
+    }
+    if (result.held_open) {
+        p->end_unit();                                    // the program is gone; its unit is not
+        all->stop.store(true, std::memory_order_relaxed);
+        std::unique_lock g(all->lock);
+        all->changed.wait_for(g, read_slice * 4, [&] { return all->open == 0; });
+    }
+    {
+        std::lock_guard g(out->lock);
+        result.out = out->data;
+        result.out_truncated = out->truncated;
+    }
+    {
+        std::lock_guard g(err->lock);
+        result.err = err->data;
+        result.err_truncated = err->truncated;
+    }
+    result.duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+    return result;
+}
+
 result<void> exec(spawn_options o) {
     if (o.in != stdio::inherit || o.out != stdio::inherit || o.err != stdio::inherit)
         return std::unexpected(error{ errc::invalid,
@@ -451,6 +551,43 @@ bool alive(const program& p) {
     auto d = describe(p.id);
     if (!d || d->ended) return false;
     return p.started_ns == 0 || d->who.started_ns == 0 || d->who.started_ns == p.started_ns;
+}
+
+std::vector<thread_info> threads(std::uint64_t id) {
+    std::vector<thread_info> out;
+    if (host() != platform::linux || id == 0) return out;
+    // /proc/<id>/task/<tid>/stat: `<tid> (<name>) <state> ...', utime and stime
+    // the 12th and 13th fields after the name, in ticks of USER_HZ (100).
+    constexpr std::uint64_t ns_per_tick = 10'000'000;
+    const auto number = [](std::string_view text) -> std::optional<std::uint64_t> {
+        std::uint64_t v = 0;
+        const auto [end, ec] = std::from_chars(text.data(), text.data() + text.size(), v);
+        if (ec != std::errc{} || end != text.data() + text.size()) return std::nullopt;
+        return v;
+    };
+    std::error_code ec;
+    const std::filesystem::path tasks = std::format("/proc/{}/task", id);
+    for (std::filesystem::directory_iterator it(tasks, ec), end; !ec && it != end; it.increment(ec)) {
+        const auto stat = fs::read(it->path() / "stat");
+        if (!stat) continue;
+        const auto open = stat->find('(');
+        const auto close = stat->rfind(')');
+        if (open == std::string::npos || close == std::string::npos || close < open || close + 2 >= stat->size()) continue;
+        std::vector<std::string_view> fields;
+        std::string_view rest = std::string_view(*stat).substr(close + 2);
+        while (!rest.empty()) {
+            const auto space = rest.find(' ');
+            if (const auto field = rest.substr(0, space); !field.empty()) fields.push_back(field);
+            rest = space == std::string_view::npos ? std::string_view{} : rest.substr(space + 1);
+        }
+        if (fields.size() < 13) continue;
+        const auto tid = number(std::string_view(*stat).substr(0, open > 0 ? open - 1 : 0));
+        const auto user = number(fields[11]);
+        const auto system = number(fields[12]);
+        if (!tid || !user || !system) continue;
+        out.push_back(thread_info{ *tid, stat->substr(open + 1, close - open - 1), (*user + *system) * ns_per_tick });
+    }
+    return out;
 }
 
 }  // namespace mcpplibs::os::process

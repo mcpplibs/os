@@ -67,6 +67,12 @@ bool is_absolute(const std::filesystem::path& name);
 bool same(const std::filesystem::path& a, const std::filesystem::path& b);
 bool within(const std::filesystem::path& name, const std::filesystem::path& directory);
 
+// THE NAME A NODE IS KNOWN BY, ASKING THE FILE SYSTEM (0.2.1): the absolute
+// name with every link followed and, on Windows, every short (8.3) component
+// replaced by its long name, so that two names of one node are one text. The
+// part that does not exist is kept as written. In the generic spelling.
+std::filesystem::path canonical(const std::filesystem::path& name);
+
 // Whether a name says where a file is, rather than naming one to look for on a
 // list of directories: it holds a separator in the host's spelling (on Windows
 // `\' as well as `/', or a drive). Asked of `host()' for the reason above.
@@ -75,6 +81,11 @@ bool names_a_place(std::string_view name);
 // --- contents --------------------------------------------------------------
 
 result<std::string> read(const std::filesystem::path& file);
+
+// AT MOST `at_most' BYTES (0.2.1): errc::too_large when the file holds more,
+// having read no more than one byte past the bound --- also of a file that
+// grows while it is read.
+result<std::string> read(const std::filesystem::path& file, std::size_t at_most);
 
 // Written in place: created, or truncated and rewritten.
 result<void> write(const std::filesystem::path& file, std::string_view bytes);

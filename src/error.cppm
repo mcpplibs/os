@@ -13,6 +13,7 @@ enum class errc {
     invalid = 1, again, io, no_memory, no_space, permission, not_supported, closed,
     not_found, exists, not_empty, is_directory, not_directory, not_program,
     timed_out,
+    too_large,   // more than the caller would take (0.2.1)
 };
 
 struct error {

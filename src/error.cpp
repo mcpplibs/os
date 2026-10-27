@@ -21,6 +21,7 @@ std::string_view describe(errc code) noexcept {
         case errc::not_directory: return "not a directory";
         case errc::not_program:   return "not a program this system can start";
         case errc::timed_out:     return "timed out";
+        case errc::too_large:     return "larger than the bound";
     }
     return "unknown condition";
 }

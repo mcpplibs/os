@@ -118,6 +118,32 @@ struct output {
 };
 result<output> run(spawn_options options, std::string_view input = {});
 
+// A RUN WITH BOUNDS (0.2.1), for a program that may not end, may leave a
+// descendant holding its output open, or may write without end. It runs in a
+// unit of its own. Past `hard' it is asked to end and, `grace' later, its unit
+// is ended. Its outputs are read for `drain' after it has ended; one a
+// descendant still holds open then ends the unit as well (`held_open'). Each
+// output keeps at most its limit, and what is past it is read and dropped, so
+// the program never waits on a full pipe.
+struct bounds {
+    std::chrono::milliseconds hard  { std::chrono::seconds { 60 } };
+    std::chrono::milliseconds grace { std::chrono::seconds { 2 } };
+    std::chrono::milliseconds drain { std::chrono::seconds { 1 } };
+    std::size_t out_limit = std::size_t { 256 } << 20;
+    std::size_t err_limit = std::size_t { 1 } << 20;
+};
+struct bounded_output {
+    exit_status status;
+    std::string out;
+    std::string err;
+    bool timed_out     = false;  // `hard' passed and the program was ended
+    bool held_open     = false;  // an output stayed open after the program ended
+    bool out_truncated = false;
+    bool err_truncated = false;
+    std::chrono::milliseconds duration { 0 };
+};
+result<bounded_output> run(spawn_options options, const bounds& limits, std::string_view input = {});
+
 // Becomes the program: returns only when it could not be started. Where the
 // system replaces a program's image (Linux, macOS) this program's image is
 // replaced, keeping its identity, its terminal and its place among the
@@ -149,6 +175,16 @@ result<program> self();
 result<program_info> describe(std::uint64_t id);
 // Whether that program is still the one that was named.
 bool alive(const program& p);
+
+// THE THREADS OF A PROGRAM and the processor time each has used (0.2.1), where
+// the system tells them apart (Linux: /proc/<id>/task); none elsewhere, where
+// `describe' gives the program's whole time.
+struct thread_info {
+    std::uint64_t id = 0;
+    std::string   name;
+    std::uint64_t cpu_ns = 0;
+};
+std::vector<thread_info> threads(std::uint64_t id);
 
 }  // namespace mcpplibs::os::process
 

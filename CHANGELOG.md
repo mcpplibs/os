@@ -46,11 +46,26 @@ its descriptors, signals, `uname`, `sysinfo` and `syscall` are its own.
   native rows and the ok images. Locally, the native and hosted suites pass on
   Linux x86_64 (gcc 16.1.0 and llvm 23.1.3, dev and release) and on aarch64
   under qemu. The Windows and macOS builds are cross-linked from Linux.
+- **What mcpp-language-server's operating-system layer carried** (its
+  `modules/os` and `modules/platform`, removed in its 0.0.18):
+  - `process::run(options, bounds, input)`: a run with a hard bound, a grace
+    and a drain, and limits on what each output keeps. It reports a timeout,
+    an output a descendant held open, and an output it cut.
+  - `process::threads(id)`: the threads of a program and the processor time of
+    each (Linux; none elsewhere).
+  - `env::assignments(entries)`: `NAME=value` entries as the overrides of a
+    started program's environment.
+  - `fs::read(file, at_most)`: a bounded read, `errc::too_large` past the
+    bound (new error condition).
+  - `fs::canonical(name)`: the name a node is known by, with links followed
+    and, on Windows, short (8.3) components replaced by their long names.
 - Tests: `platform_test` asserts that Linux names the machine as the processor
   the program runs on. `fs_test` asserts that a volume's kind is named.
   `process_test` makes a file executable with `os::fs::set_executable` rather
   than with `std::filesystem::permissions`, which a C library on openkal
-  refuses.
+  refuses. `process_test` covers the bounded run (a cut output, a hard bound,
+  an output held open), the threads of this program and environment entries;
+  `fs_test` covers the bounded read and the canonical name.
 
 ## 0.2.0
 
