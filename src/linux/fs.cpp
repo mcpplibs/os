@@ -1,11 +1,7 @@
 // Linux's own of mcpplibs.os.fs: an exchange (renameat2 RENAME_EXCHANGE) and
-// the volume's kind (statfs).
+// the volume's kind (statfs), by the kernel's calls (src/linux/kernel.h).
 module;
-#include <cerrno>
-#include <fcntl.h>
-#include <sys/syscall.h>
-#include <sys/vfs.h>
-#include <unistd.h>
+#include "kernel.h"
 
 module mcpplibs.os.fs;
 
@@ -13,16 +9,20 @@ import std;
 
 namespace mcpplibs::os::fs::sys {
 
+namespace k = mcpplibs::os::linux_kernel;
+
 int exchange(const std::filesystem::path& a, const std::filesystem::path& b) {
-    constexpr unsigned kExchange = 2;   // RENAME_EXCHANGE
-    return ::syscall(SYS_renameat2, AT_FDCWD, a.c_str(), AT_FDCWD, b.c_str(), kExchange) == 0 ? 0 : errno;
+    return static_cast<int>(-k::renameat2(k::at_cwd, a.c_str(), k::at_cwd, b.c_str(), k::rename_exchange));
 }
-bool exchange_unsupported(int c) { return c == EINVAL || c == ENOSYS || c == EOPNOTSUPP; }
+bool exchange_unsupported(int c) {
+    return c == static_cast<int>(std::errc::invalid_argument) || c == static_cast<int>(std::errc::function_not_supported)
+        || c == static_cast<int>(std::errc::operation_not_supported);
+}
 
 std::string volume_type(const std::filesystem::path& directory) {
-    struct statfs st {};
-    if (::statfs(directory.c_str(), &st) != 0) return {};
-    switch (static_cast<unsigned long>(st.f_type)) {
+    unsigned long long type = 0;
+    if (k::statfs_type(directory.c_str(), &type) != 0) return {};
+    switch (type) {
         case 0xEF53: return "ext4";
         case 0x58465342: return "xfs";
         case 0x9123683E: return "btrfs";
@@ -39,7 +39,7 @@ std::string volume_type(const std::filesystem::path& directory) {
         case 0x01021997: return "9p";
         case 0x2FC12FC1: return "zfs";
         case 0x00C36400: return "ceph";
-        default: return std::format("0x{:x}", static_cast<unsigned long>(st.f_type));
+        default: return std::format("0x{:x}", type);
     }
 }
 

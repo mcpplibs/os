@@ -8,6 +8,8 @@ module mcpplibs.os.fs;
 import std;
 import mcpplibs.os.error;
 
+#include "text.h"
+
 namespace mcpplibs::os::fs::sys {
 
 namespace {
@@ -18,7 +20,7 @@ okos_handle invalid() { return reinterpret_cast<okos_handle>(static_cast<std::in
 result<void> sync(const std::filesystem::path& node) {
     std::error_code ec;
     if (std::filesystem::is_directory(node, ec)) return {};   // nothing of a directory is flushed here
-    const okos_handle h = CreateFileW(node.c_str(), 0x40000000 /* GENERIC_WRITE */, 0x7 /* share all */,
+    const okos_handle h = CreateFileW(utf16_from_path(node).c_str(), 0x40000000 /* GENERIC_WRITE */, 0x7 /* share all */,
                                       nullptr, 3 /* OPEN_EXISTING */, 0x80 /* NORMAL */, nullptr);
     if (h == invalid() || h == nullptr) {
         const auto e = GetLastError();
@@ -41,19 +43,19 @@ bool exchange_unsupported(int c) {
 }
 
 std::string volume_type(const std::filesystem::path& directory) {
-    wchar_t root[260] {}, name[260] {};
-    if (!GetVolumePathNameW(directory.c_str(), root, 260)) return {};
-    if (!GetVolumeInformationW(root, nullptr, 0, nullptr, nullptr, nullptr, name, 260)) return {};
-    return mcpplibs::os::fs::utf8(std::filesystem::path(name));
+    okos_wchar root[260] {}, name[260] {};
+    if (!late::GetVolumePathNameW(utf16_from_path(directory).c_str(), root, 260)) return {};
+    if (!late::GetVolumeInformationW(root, nullptr, 0, nullptr, nullptr, nullptr, name, 260)) return {};
+    return mcpplibs::os::fs::utf8(path_from_utf16(name));
 }
 
 owner owner_of(const std::filesystem::path& node) {
-    using named_security = okos_dword (__stdcall*)(const wchar_t*, int, okos_dword, void**, void**, void**, void**, void**);
+    using named_security = okos_dword (__stdcall*)(const okos_wchar*, int, okos_dword, void**, void**, void**, void**, void**);
     using well_known = okos_bool (__stdcall*)(void*, int);
     using open_token = okos_bool (__stdcall*)(okos_handle, okos_dword, okos_handle*);
     using token_information = okos_bool (__stdcall*)(okos_handle, int, void*, okos_dword, okos_dword*);
     using equal_sid = okos_bool (__stdcall*)(void*, void*);
-    const okos_handle advapi = LoadLibraryW(L"advapi32.dll");
+    const okos_handle advapi = LoadLibraryW(u"advapi32.dll");
     if (!advapi) return owner::unknown;
     const auto security = reinterpret_cast<named_security>(GetProcAddress(advapi, "GetNamedSecurityInfoW"));
     const auto known = reinterpret_cast<well_known>(GetProcAddress(advapi, "IsWellKnownSid"));
@@ -63,7 +65,7 @@ owner owner_of(const std::filesystem::path& node) {
     if (!security || !known || !open || !query || !equal) return owner::unknown;
     void* who = nullptr;
     void* descriptor = nullptr;
-    if (security(node.c_str(), 1 /* SE_FILE_OBJECT */, 0x1 /* OWNER_SECURITY_INFORMATION */,
+    if (security(utf16_from_path(node).c_str(), 1 /* SE_FILE_OBJECT */, 0x1 /* OWNER_SECURITY_INFORMATION */,
                  &who, nullptr, nullptr, nullptr, &descriptor) != 0)
         return owner::unknown;
     owner found = owner::another_user;

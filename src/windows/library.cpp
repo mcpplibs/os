@@ -8,22 +8,13 @@ import std;
 import mcpplibs.os.error;
 import mcpplibs.os.fs;
 
+#include "text.h"
+
 namespace mcpplibs::os::library {
-
-namespace {
-
-std::wstring wide(std::string_view utf8) {
-    const int n = MultiByteToWideChar(65001, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-    std::wstring out(static_cast<std::size_t>(n > 0 ? n : 0), L'\0');
-    if (n > 0) MultiByteToWideChar(65001, 0, utf8.data(), static_cast<int>(utf8.size()), out.data(), n);
-    return out;
-}
-
-}  // namespace
 
 handle& handle::operator=(handle&& other) noexcept {
     if (this != &other) {
-        if (owned_ && native_) FreeLibrary(native_);
+        if (owned_ && native_) late::FreeLibrary(native_);
         native_ = std::exchange(other.native_, nullptr);
         owned_ = std::exchange(other.owned_, false);
     }
@@ -31,7 +22,7 @@ handle& handle::operator=(handle&& other) noexcept {
 }
 
 handle::~handle() {
-    if (owned_ && native_) FreeLibrary(native_);
+    if (owned_ && native_) late::FreeLibrary(native_);
 }
 
 void* handle::symbol(std::string_view name) const {
@@ -42,14 +33,14 @@ void* handle::symbol(std::string_view name) const {
 
 result<handle> open(const std::filesystem::path& file) {
     const std::string name = fs::utf8(file);
-    okos_handle h = LoadLibraryW(wide(name).c_str());
+    okos_handle h = LoadLibraryW(utf16_from_utf8(name).c_str());
     if (!h) return std::unexpected(error{errc::not_found, std::format("loading {}", name), static_cast<int>(GetLastError())});
     return handle(h, true);
 }
 
 std::optional<handle> loaded(std::string_view name) {
     // GetModuleHandleW counts no reference: the handle closes nothing.
-    okos_handle h = GetModuleHandleW(wide(name).c_str());
+    okos_handle h = late::GetModuleHandleW(utf16_from_utf8(name).c_str());
     if (!h) return std::nullopt;
     return handle(h, false);
 }
@@ -58,7 +49,7 @@ void* process_symbol(std::string_view name) {
     const std::string n(name);
     okos_handle modules[1024];
     okos_dword bytes = 0;
-    if (!K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &bytes)) return nullptr;
+    if (!late::K32EnumProcessModules(GetCurrentProcess(), modules, sizeof modules, &bytes)) return nullptr;
     const std::size_t count = std::min<std::size_t>(bytes / sizeof(okos_handle), std::size(modules));
     for (std::size_t i = 0; i < count; ++i)
         if (void* p = GetProcAddress(modules[i], n.c_str())) return p;

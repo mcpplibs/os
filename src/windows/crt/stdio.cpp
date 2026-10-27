@@ -1,8 +1,19 @@
-// The C runtime's output descriptor saved (its handle not inherited) and
-// replaced by the error one; `_dup2' to a standard descriptor also sets the
-// process's standard handle, which a started program receives.
+// The output descriptor saved (its handle not inherited) and replaced by the
+// error one, under the Microsoft C runtime: `_dup2' to a standard descriptor
+// also sets the process's standard handle, which openkal's standard output and
+// a started program use. Selected where the C library is the system's (the
+// manifest); src/windows/stdio.cpp serves a C library on openkal.
 module;
-#include "win32.h"
+#include "../win32.h"
+
+extern "C" {
+// The C runtime's descriptors.
+int __cdecl _dup(int);
+int __cdecl _dup2(int, int);
+int __cdecl _close(int);
+long long __cdecl _get_osfhandle(int);
+int __cdecl _write(int, const void*, unsigned);
+}
 
 module mcpplibs.os.stdio;
 

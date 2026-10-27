@@ -3,8 +3,8 @@
 // waiter sees is the program's.
 module;
 #include <cerrno>
-#include <signal.h>
 #include <unistd.h>
+#include "kernel.h"
 
 module mcpplibs.os.process;
 
@@ -31,10 +31,9 @@ result<void> replace_image(const std::filesystem::path& program,
     // fatal, and an ignored disposition survives execve: the program this one
     // becomes would begin with it ignored, and `yes | head' inside it would
     // report a write error instead of ending. A handler is reset by execve, an
-    // ignore is not, so the ignore is undone here.
-    struct sigaction pipe_default {};
-    pipe_default.sa_handler = SIG_DFL;
-    ::sigaction(SIGPIPE, &pipe_default, nullptr);
+    // ignore is not, so the ignore is undone here, in the kernel, where the
+    // process keeps it (src/posix/kernel.h).
+    mcpplibs::os::kernel::default_signal(mcpplibs::os::kernel::sigpipe);
     ::execve(program.c_str(), args.data(), envp.data());
     const int e = errno;
     // A file this machine cannot start: no image at all (ENOEXEC), or on
