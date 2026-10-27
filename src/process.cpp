@@ -159,8 +159,10 @@ std::uint64_t process::id() const {
 }
 
 result<process> process::spawn(const spawn_options& o) {
-    if (o.in == stdio::error)
-        return std::unexpected(error{ errc::invalid, "a program's input cannot be this program's error output" });
+    if (o.in == stdio::error || o.in == stdio::output)
+        return std::unexpected(error{ errc::invalid, "a program's input cannot be an output of this program" });
+    if (o.out == stdio::output)
+        return std::unexpected(error{ errc::invalid, "a program's output cannot be its own output" });
     // The program, by name or by its place.
     std::filesystem::path program = o.program;
     if (!fs::names_a_place(fs::generic_utf8(o.program))) {
@@ -220,7 +222,10 @@ result<process> process::spawn(const spawn_options& o) {
     } else if (o.out == stdio::error) {
         child_out = kal_stderr();
     }
-    if (o.err == stdio::pipe) {
+    if (o.err == stdio::output) {
+        if (o.out == stdio::inherit) child_err = kal_stdout();
+        else child_err = child_out;
+    } else if (o.err == stdio::pipe) {
         if (const int rc = kal_process_channel(&s->error, &child_err); rc != kal_ok)
             return fail_streams(from_kal(rc, "making the program's error output"));
         s->error_open = true; release.push_back(child_err);
@@ -247,8 +252,12 @@ result<process> process::spawn(const spawn_options& o) {
 
     const kal_uintptr props = kal_process_props();
     const bool bind = o.bound_lifetime && (props & kal::process::bound_lifetime.bits) != 0;
+    if (o.one_string && (props & kal::process::one_string.bits) == 0)
+        return fail_streams(error{ errc::not_supported,
+            std::format("starting {}: a program here receives a vector, not one string", fs::generic_utf8(program)) });
     kal_spawn how{ as_dir(where->directory), work, nullptr, nullptr, 0,
-                   bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 } };
+                   (bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 })
+                   | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 }) };
     kal_job job{};
     const bool unit = o.own_unit && (props & kal::process::job.bits) != 0;
     if (unit) how.job = &job;
@@ -385,6 +394,34 @@ result<output> run(spawn_options options, std::string_view input) {
     if (!st) return std::unexpected(st.error());
     out.status = *st;
     return out;
+}
+
+result<void> exec(spawn_options o) {
+    if (o.in != stdio::inherit || o.out != stdio::inherit || o.err != stdio::inherit)
+        return std::unexpected(error{ errc::invalid,
+            "a program this one becomes has this program's own streams" });
+    std::filesystem::path program = o.program;
+    if (!fs::names_a_place(fs::generic_utf8(o.program))) {
+        auto found = env::find_executable(fs::generic_utf8(program));
+        if (!found) return std::unexpected(error{ errc::not_found, std::format("{} is not on PATH", fs::generic_utf8(program)) });
+        program = *found;
+    }
+    program = fs::absolute(program).lexically_normal();
+    std::vector<std::string> argv{ o.argv0.value_or(fs::utf8(program)) };
+    for (const auto& a : o.args) argv.push_back(a);
+    if (auto r = sys::replace_image(program, argv, environment_for(o), o.cwd);
+        r || r.error().code != errc::not_supported)
+        return r;   // returned: the image was not replaced
+    // No replacement here: the program runs in a unit bound to this one, and
+    // this one ends as it ended.
+    o.own_unit = true;
+    o.bound_lifetime = true;
+    o.program = program;
+    auto p = process::spawn(o);
+    if (!p) return std::unexpected(p.error());
+    auto st = p->wait();
+    if (!st) return std::unexpected(st.error());
+    std::exit(st->code);
 }
 
 result<program> self() {

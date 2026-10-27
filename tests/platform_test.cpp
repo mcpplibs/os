@@ -26,5 +26,14 @@ int main() {
         check(os::machine::memory().value_or(0) > 0, "the machine's memory is known");
     const auto a = os::random::hex(16), b = os::random::hex(16);
     check(a && a->size() == 32 && b && *a != *b, "the system's source gives bytes that differ from call to call");
+        {
+        const auto p = os::machine::processors();
+        check(p.logical >= 1 && p.physical >= 1 && p.physical <= p.logical, "processors: logical and physical counted");
+        if (!os::is_image) check(os::machine::memory_available().value_or(0) > 0, "and the memory available now");
+    }
+    if constexpr (os::is_windows) {
+        check(os::windows::code_page() != 0, "Windows: the ANSI code page is known");
+        (void)os::windows::long_paths_enabled();
+    }
     return g_failures;
 }

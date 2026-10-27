@@ -475,3 +475,184 @@ result<void> rename(const std::filesystem::path& from, const std::filesystem::pa
 }
 
 }  // namespace mcpplibs::os::fs
+
+// --- 0.2.0: appending, durability, long names, measured volumes ----------------
+
+namespace mcpplibs::os::fs {
+
+result<void> append(const std::filesystem::path& file, std::string_view bytes) {
+    const std::string doing = std::format("appending to {}", generic_utf8(file));
+    auto l = where(file, "appending to");
+    if (!l) return std::unexpected(l.error());
+    opened_file f;
+    const auto flags = kal::fs::open::write | kal::fs::open::create | kal::fs::open::append;
+    const int rc = kal_fs_open(dir_of(*l), l->relative.data(), l->relative.size(), flags.bits, &f.f);
+    if (rc != kal_ok) return std::unexpected(from_kal(rc, doing));
+    // One write: a stream that appends places each write whole at the end.
+    const kal_intptr n = kal_stream_write(kal_fs_stream(f.f), bytes.data(), bytes.size());
+    if (n < 0 || static_cast<std::size_t>(n) != bytes.size())
+        return std::unexpected(from_kal(n < 0 ? static_cast<int>(-n) : kal_err_io, doing));
+    return {};
+}
+
+result<void> sync(const std::filesystem::path& node) { return sys::sync(node); }
+
+std::string windows_extended(std::string_view in) {
+    std::string s(in);
+    for (auto& c : s) if (c == '/') c = '\\';
+    // Already extended (`\\?\`) or a device name (`\\.\`): nothing is rewritten.
+    if (s.starts_with("\\\\?\\") || s.starts_with("\\\\.\\")) return s;
+    std::string prefix, rest;
+    if (s.starts_with("\\\\")) {
+        prefix = "\\\\?\\UNC\\";
+        rest = s.substr(2);
+    } else if (s.size() >= 3 && std::isalpha(static_cast<unsigned char>(s[0])) && s[1] == ':' && s[2] == '\\') {
+        prefix = "\\\\?\\";
+        rest = s;
+    } else {
+        return std::string(in);   // relative or rootless
+    }
+    // The prefix turns off `.' and `..', so they are resolved here; `..' never
+    // climbs above the drive or the share.
+    std::vector<std::string> parts;
+    const std::size_t keep = prefix.ends_with("UNC\\") ? 2 : 1;
+    std::size_t start = 0;
+    while (start <= rest.size()) {
+        auto end = rest.find('\\', start);
+        if (end == std::string::npos) end = rest.size();
+        std::string comp = rest.substr(start, end - start);
+        start = end + 1;
+        if (comp.empty() || comp == ".") continue;
+        if (comp == "..") { if (parts.size() > keep) parts.pop_back(); continue; }
+        parts.push_back(std::move(comp));
+    }
+    std::string out = prefix;
+    for (std::size_t i = 0; i < parts.size(); ++i) { if (i) out += '\\'; out += parts[i]; }
+    if (parts.size() == 1 && keep == 1) out += '\\';   // `\\?\C:\`, not `\\?\C:`
+    return out;
+}
+
+std::filesystem::path extended(const std::filesystem::path& name) {
+    if (host() != platform::windows || name.empty()) return name;
+    std::error_code ec;
+    const auto abs = std::filesystem::absolute(name, ec);
+    if (ec) return name;
+    const auto u8 = abs.generic_u8string();
+    const auto spelled = windows_extended(std::string(reinterpret_cast<const char*>(u8.data()), u8.size()));
+    return std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(spelled.data()), spelled.size()));
+}
+
+std::string volume_type(const std::filesystem::path& directory) { return sys::volume_type(directory); }
+owner owner_of(const std::filesystem::path& node) { return sys::owner_of(node); }
+bool writable(const std::filesystem::path& node) { return sys::writable(node); }
+
+behaviour measure_now(const std::filesystem::path& directory) {
+    behaviour b;
+    b.type = sys::volume_type(directory);
+    std::error_code ec;
+    std::random_device random;
+    const auto scratch = directory / std::format(".os-measure-{:08x}{:08x}", random(), random());
+    if (!std::filesystem::create_directory(scratch, ec) || ec) return b;
+    const auto touch = [&](const std::filesystem::path& p) { return write(p, "x").has_value(); };
+    if (touch(scratch / "a") && touch(scratch / "c")) {
+        b.measured = true;
+        if (const auto r = rename(scratch / "a", scratch / "b", false); !r) {
+            b.rename_no_replace = r.error().code != errc::not_supported;
+            std::filesystem::rename(scratch / "a", scratch / "b", ec);
+        }
+        if (const int e = sys::exchange(scratch / "b", scratch / "c"); e != 0)
+            b.exchange = !sys::exchange_unsupported(e);
+        ec.clear();
+        std::filesystem::create_hard_link(scratch / "b", scratch / "d", ec);
+        b.hard_links = !ec;
+        ec.clear();
+        std::filesystem::create_symlink("b", scratch / "e", ec);
+        b.symbolic_links = !ec;
+        ec.clear();
+        if (touch(scratch / "Case")) b.case_sensitive = !std::filesystem::exists(scratch / "cASE", ec);
+    }
+    std::filesystem::remove_all(scratch, ec);
+    return b;
+}
+
+behaviour measure(const std::filesystem::path& directory) {
+    static std::mutex guard;
+    static std::map<std::uint64_t, behaviour> known;
+    const auto id = identity_of(directory);
+    const std::uint64_t volume = id ? id->volume : 0;
+    {
+        std::scoped_lock g(guard);
+        if (volume != 0)
+            if (const auto it = known.find(volume); it != known.end()) return it->second;
+    }
+    auto b = measure_now(directory);
+    if (volume != 0 && b.measured) {
+        std::scoped_lock g(guard);
+        known.emplace(volume, b);
+    }
+    return b;
+}
+
+result<void> place(const std::filesystem::path& from, const std::filesystem::path& to) {
+    const std::string doing = std::format("placing {} as {}", generic_utf8(from), generic_utf8(to));
+    auto parent = to.parent_path();
+    if (parent.empty()) parent = ".";
+    const auto b = measure(parent);
+    const auto failed = [&](std::error_code e) {
+        return std::unexpected(error{ e == std::errc::file_exists ? errc::exists : errc::io,
+                                      std::format("{}: {}", doing, e.message()) });
+    };
+    if (b.rename_no_replace) {
+        const auto r = rename(from, to, false);
+        if (r || r.error().code != errc::not_supported) return r;
+    }
+    std::error_code ec;
+    const auto status = std::filesystem::symlink_status(from, ec);
+    if (ec) return failed(ec);
+    if (status.type() == std::filesystem::file_type::symlink) {
+        std::filesystem::copy_symlink(from, to, ec);
+        if (ec) return failed(ec);
+        std::filesystem::remove(from, ec);
+        return {};
+    }
+    if (status.type() != std::filesystem::file_type::directory && b.hard_links) {
+        std::filesystem::create_hard_link(from, to, ec);
+        if (ec) return failed(ec);
+        std::filesystem::remove(from, ec);
+        return {};
+    }
+    const auto there = std::filesystem::symlink_status(to, ec);
+    if (ec && ec != std::errc::no_such_file_or_directory) return failed(ec);
+    if (std::filesystem::exists(there)) return failed(std::make_error_code(std::errc::file_exists));
+    std::filesystem::rename(from, to, ec);
+    if (ec) return failed(ec);
+    return {};
+}
+
+result<void> exchange(const std::filesystem::path& a, const std::filesystem::path& b) {
+    const std::string doing = std::format("exchanging {} and {}", generic_utf8(a), generic_utf8(b));
+    auto parent = b.parent_path();
+    if (parent.empty()) parent = ".";
+    if (measure(parent).exchange) {
+        const int e = sys::exchange(a, b);
+        if (e == 0) return {};
+        if (!sys::exchange_unsupported(e))
+            return std::unexpected(error{ errc::io, std::format("{}: {}", doing, std::generic_category().message(e)), e });
+    }
+    std::random_device random;
+    const auto aside = parent / std::format(".os-exchange-{:08x}{:08x}", random(), random());
+    std::error_code ec;
+    std::filesystem::rename(b, aside, ec);
+    if (ec) return std::unexpected(error{ errc::io, std::format("{}: {}", doing, ec.message()) });
+    std::filesystem::rename(a, b, ec);
+    if (ec) {
+        std::error_code back;
+        std::filesystem::rename(aside, b, back);
+        return std::unexpected(error{ errc::io, std::format("{}: {}", doing, ec.message()) });
+    }
+    std::filesystem::rename(aside, a, ec);
+    if (ec) return std::unexpected(error{ errc::io, std::format("{}: {}", doing, ec.message()) });
+    return {};
+}
+
+}  // namespace mcpplibs::os::fs

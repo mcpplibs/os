@@ -14,10 +14,12 @@ export import mcpplibs.os.error;
 export namespace mcpplibs::os::process {
 
 // What a started program's stream is: this program's own, a pipe to this
-// program, the null device, or (`error') this program's standard error --- for
-// a program whose standard output carries a protocol, where what a child
-// writes may not reach it.
-enum class stdio { inherit, pipe, null, error };
+// program, the null device, (`error') this program's standard error --- for a
+// program whose standard output carries a protocol, where what a child writes
+// may not reach it --- or (`output', for the error stream only) the stream the
+// program's standard output is: one pipe carries both, in the order written,
+// which is the order a person reads a compiler's diagnostics in.
+enum class stdio { inherit, pipe, null, error, output };
 
 struct spawn_options {
     // An absolute name, or a bare one looked for on PATH (`env::find_executable').
@@ -36,6 +38,12 @@ struct spawn_options {
     bool own_unit = false;
     // The program ends when this one ends, however this one ends.
     bool bound_lifetime = false;
+    // Where a program receives one string and splits it by rules of its own
+    // (Windows), the arguments are joined after the program's name as they are,
+    // unquoted: for the command interpreter, whose `/s /c' takes the rest of
+    // the line as a command of its own grammar (0.2.0, openkal 0.17.1).
+    // errc::not_supported where a program receives a vector.
+    bool one_string = false;
 };
 
 // How a program ended: the status it returned, or, ended by its environment
@@ -110,6 +118,15 @@ struct output {
 };
 result<output> run(spawn_options options, std::string_view input = {});
 
+// Becomes the program: returns only when it could not be started. Where the
+// system replaces a program's image (Linux, macOS) this program's image is
+// replaced, keeping its identity, its terminal and its place among the
+// processes that wait for it; elsewhere the program is started with this
+// program's three streams, in a unit bound to this program, and this program
+// ends as it ended. Either way the status a caller sees is the program's own.
+// Streams other than `inherit' are refused: nothing remains to read them.
+result<void> exec(spawn_options options);
+
 // --- programs this one did not start (openkal 0.17) ------------------------
 
 // A program, named so that a later one given the same identifier is another.
@@ -134,3 +151,12 @@ result<program_info> describe(std::uint64_t id);
 bool alive(const program& p);
 
 }  // namespace mcpplibs::os::process
+
+// Each system's own (src/<os>/exec.cpp): the image replaced by the program at
+// `program', or errc::not_supported where the system does not replace one.
+namespace mcpplibs::os::process::sys {
+result<void> replace_image(const std::filesystem::path& program,
+                           const std::vector<std::string>& argv,
+                           const std::vector<std::string>& environment,
+                           const std::filesystem::path& cwd);
+}  // namespace mcpplibs::os::process::sys

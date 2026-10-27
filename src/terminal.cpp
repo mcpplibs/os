@@ -48,12 +48,16 @@ bool color(stream s) {
     return interactive(s) && sequences(s);
 }
 
-result<raw_mode> raw_mode::enter() {
+bool foreground() { return interactive(stream::in) && sys::foreground(); }
+
+result<raw_mode> raw_mode::enter(raw_options options) {
     const kal_stream in = kal_stdin();
     kal_uintptr previous = 0;
     if (const int rc = kal_terminal_get_mode(in, &previous); rc != kal_ok)
         return std::unexpected(from_kal(rc, "reading the terminal's mode"));
-    const kal_uintptr raw = (kal::terminal::pass_control | kal::terminal::pass_input).bits;
+    const kal_uintptr raw = options.keep_interrupt
+        ? kal::terminal::pass_input.bits
+        : (kal::terminal::pass_control | kal::terminal::pass_input).bits;
     if (const int rc = kal_terminal_set_mode(in, raw); rc != kal_ok)
         return std::unexpected(from_kal(rc, "setting the terminal's mode"));
     raw_mode r;

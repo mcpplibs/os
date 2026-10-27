@@ -57,6 +57,67 @@ int child(std::string_view errand) {
         (void)os::stdio::write_output(std::filesystem::current_path().filename().string());
         return 0;
     }
+    if (errand == "both") {
+        // Written in turn to both streams: a reader of one pipe for both sees
+        // them in this order.
+        (void)os::stdio::write_output("1");
+        (void)os::stdio::write_error("2");
+        (void)os::stdio::write_output("3");
+        return 0;
+    }
+    if (errand == "become") {
+        // This program becomes another copy of itself that returns 7.
+        auto o = copy_of_self("seven");
+        o.out = os::process::stdio::inherit;
+        o.err = os::process::stdio::inherit;
+        auto r = os::process::exec(o);
+        (void)os::stdio::write_error(r ? "returned" : r.error().message());
+        return 1;
+    }
+    if (errand == "seven") {
+        (void)os::stdio::write_output("became");
+        return 7;
+    }
+    if (errand == "wait-input") {
+        // Started: the starter writes nothing until it reads this, so the
+        // reads below begin before any input can arrive however long the
+        // system takes to start a program.
+        (void)os::stdio::write_output("ready\n");
+        (void)os::stdio::flush_output();
+        // A zero bound asks without waiting.
+        const auto asked = std::chrono::steady_clock::now();
+        auto zero = os::stdio::read_input_for(std::chrono::milliseconds(0));
+        if (zero && zero->has_value()) {
+            (void)os::stdio::write_output((*zero)->empty() ? std::string("<end>") : "<" + **zero + ">");
+            return 6;
+        }
+        if (std::chrono::steady_clock::now() - asked > std::chrono::seconds(2)) return 7;
+        // Nothing arrives within the bound; then the input arrives and is read.
+        auto none = os::stdio::read_input_for(std::chrono::milliseconds(100));
+        if (none && none->has_value()) {
+            // What arrived where nothing should have, for the report.
+            (void)os::stdio::write_output((*none)->empty() ? std::string("<end>") : "<" + **none + ">");
+            return (*none)->empty() ? 8 : 2;
+        }
+        if (!none) {
+            (void)os::stdio::write_output("<" + none.error().message() + ">");
+            return 9;
+        }
+        auto some = os::stdio::read_input_for(std::chrono::seconds(20));
+        (void)os::stdio::write_output(some && some->has_value() ? **some : std::string("<none>"));
+        return none ? 0 : 3;
+    }
+    if (errand == "divert") {
+        auto d = os::stdio::output_to_error::begin();
+        if (!d) return 4;
+        (void)os::stdio::write_output("narration");
+        (void)d->write_original("document");
+        return 0;
+    }
+    if (errand == "end-closed") {
+        os::interrupt::end_as_output_closed();
+        return 5;   // where the system has no such ending
+    }
     if (errand == "sleep") {
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
@@ -168,6 +229,89 @@ int main(int argc, char** argv) {
                 check(st && st->by_environment, "and ends as the request would have ended it");
             }
         }
+    }
+    {
+        auto o = copy("both");
+        o.out = os::process::stdio::pipe;
+        o.err = os::process::stdio::output;
+        auto p = os::process::process::spawn(o);
+        std::string all;
+        if (p) {
+            for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; all += *c; }
+            (void)p->wait();
+        }
+        check(all == "123", "one pipe carries a program's output and error output in the order written");
+    }
+    {
+        auto o = copy("become");
+        auto r = os::process::run(o);
+        check(r && r->out == "became" && r->status.code == 7,
+              "a program that becomes another ends with that program's status and output");
+    }
+    if constexpr (os::is_posix) {
+        // A file that is no image is refused as not a program, before this
+        // program is replaced.
+        const auto file = std::filesystem::temp_directory_path() / "os-not-a-program";
+        { std::ofstream(file) << "this is not an executable format\n"; }
+        std::filesystem::permissions(file, std::filesystem::perms::owner_all);
+        os::process::spawn_options o;
+        o.program = file;
+        o.in = o.out = o.err = os::process::stdio::inherit;
+        auto r = os::process::exec(o);
+        check(!r && r.error().code == os::errc::not_program, "a file that is no image is not a program to become");
+        std::filesystem::remove(file);
+    }
+    if (!os::is_image) {
+        auto o = copy("wait-input");
+        o.in = os::process::stdio::pipe;
+        o.out = os::process::stdio::pipe;
+        auto p = os::process::process::spawn(o);
+        if (p) {
+            std::string out;
+            while (out.find('\n') == std::string::npos) {
+                auto c = p->read_output();
+                if (!c || c->empty()) break;
+                out += *c;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            (void)p->write("late");
+            p->close_input();
+            for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; out += *c; }
+            auto st = p->wait();
+            const bool held = st && st->code == 0 && out == "ready\nlate";
+            if (!held)
+                std::printf("  (the copy ended with %d and wrote '%s')\n", st ? st->code : -1, out.c_str());
+            check(held, "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
+        }
+        auto d = os::process::run(copy("divert"));
+        check(d && d->out == "document" && d->err == "narration",
+              "output sent to the error stream for a while, and the document to the output as it was");
+    }
+    {
+        // The command interpreter given a command with quotation marks, joined
+        // as it is; refused where a program receives a vector.
+        os::process::spawn_options o;
+        o.one_string = true;
+        if (os::host() == os::platform::windows) {
+            o.program = "cmd.exe";
+            o.args = { "/d", "/s", "/c", "\"echo \"a b\" && echo c\"" };
+            auto r = os::process::run(o);
+            check(r && r->out.find("\"a b\"") != std::string::npos && r->out.find('c') != std::string::npos,
+                  "the command interpreter runs a command with quotation marks as written");
+        } else {
+            o.program = again.front();
+            auto r = os::process::run(o);
+            check(!r && r.error().code == os::errc::not_supported,
+                  "a joined command line is refused where a program receives a vector");
+        }
+    }
+    if (!os::is_image) {
+        auto r = os::process::run(copy("end-closed"));
+        if (os::host() == os::platform::windows)
+            check(r && r->status.code == 5, "Windows has no ending for a closed reader, and the program goes on");
+        else
+            check(r && r->status.by_environment && r->status.shell_code() == 141,
+                  "a program ends as a closed reader ends it: 141 to a shell");
     }
     {
         auto me = os::process::self();

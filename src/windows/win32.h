@@ -35,4 +35,27 @@ __declspec(dllimport) okos_handle __stdcall GetModuleHandleW(const wchar_t*);
 __declspec(dllimport) okos_dword __stdcall GetLastError(void);
 __declspec(dllimport) okos_bool __stdcall K32EnumProcessModules(okos_handle, okos_handle*, okos_dword, okos_dword*);
 __declspec(dllimport) int __stdcall MultiByteToWideChar(unsigned, okos_dword, const char*, int, wchar_t*, int);
+// 0.2.0
+__declspec(dllimport) okos_dword __stdcall GetLastError(void);
+__declspec(dllimport) okos_bool __stdcall FlushFileBuffers(okos_handle);
+__declspec(dllimport) okos_bool __stdcall GetVolumePathNameW(const wchar_t*, wchar_t*, okos_dword);
+__declspec(dllimport) okos_bool __stdcall GetVolumeInformationW(const wchar_t*, wchar_t*, okos_dword, okos_dword*,
+                                                                okos_dword*, okos_dword*, wchar_t*, okos_dword);
+__declspec(dllimport) void* __stdcall LocalFree(void*);
+__declspec(dllimport) okos_dword __stdcall GetActiveProcessorCount(unsigned short);
+__declspec(dllimport) okos_bool __stdcall GetLogicalProcessorInformationEx(int, void*, okos_dword*);
+__declspec(dllimport) unsigned __stdcall GetACP(void);
+__declspec(dllimport) unsigned __stdcall GetConsoleOutputCP(void);
+__declspec(dllimport) okos_bool __stdcall GetConsoleMode(okos_handle, okos_dword*);
+__declspec(dllimport) unsigned __stdcall GetDriveTypeW(const wchar_t*);
+__declspec(dllimport) okos_dword __stdcall GetFileAttributesW(const wchar_t*);
+__declspec(dllimport) okos_dword __stdcall GetCurrentProcessId(void);
+__declspec(dllimport) unsigned long long __stdcall GetTickCount64(void);
+__declspec(dllimport) okos_bool __stdcall SetHandleInformation(okos_handle, okos_dword, okos_dword);
+// The C runtime's descriptors (every Windows C environment has these).
+int __cdecl _dup(int);
+int __cdecl _dup2(int, int);
+int __cdecl _close(int);
+long long __cdecl _get_osfhandle(int);
+int __cdecl _write(int, const void*, unsigned);
 }

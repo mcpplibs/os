@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.1.1" }
+os = { namespace = "mcpplibs", version = "0.2.0" }
 ```
 
 ```cpp
@@ -41,15 +41,15 @@ platform modules.
 | `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables (names without case on Windows), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
-| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `locate`, `absolute`, `names_a_place`; names in the host's rules without the file system: `generic`, `native`, `is_absolute`, `same`, `within` |
-| `mcpplibs.os.process` | `spawn`, `run`, pipes, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive` |
-| `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested` |
-| `mcpplibs.os.stdio` | the three streams as bytes |
-| `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` |
+| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
+| `mcpplibs.os.process` | `spawn`, `run`, `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive` |
+| `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |
+| `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`) |
+| `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` (with or without the interrupting keystroke), `foreground` |
 | `mcpplibs.os.dirs` | `home`, `config`, `data`, `state`, `cache`, `runtime`, `temp` |
 | `mcpplibs.os.ipc` | a listener and a connection at a name in a directory; `single_instance` |
 | `mcpplibs.os.net` | loopback TCP |
-| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory |
+| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed) |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
 | `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
 | `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined only on their own |

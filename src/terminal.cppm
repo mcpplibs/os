@@ -24,11 +24,19 @@ bool sequences(stream s);
 // otherwise colour is written to a terminal that obeys the sequences.
 bool color(stream s);
 
+// Whether this program may change the terminal's mode: its input is a terminal
+// and, on POSIX, this program is in the terminal's foreground --- a background
+// job that changed it would be stopped (SIGTTOU) (0.2.0).
+bool foreground();
+
 // Keystrokes as they are typed --- no line assembly, no echo, none kept by the
 // system, none altered --- until destroyed, when the previous mode returns.
+// `keep_interrupt' leaves the system the keystroke that interrupts the program
+// (Ctrl-C), so a program that reads keys still ends as a person asks (0.2.0).
+struct raw_options { bool keep_interrupt = false; };
 class raw_mode {
 public:
-    static result<raw_mode> enter();
+    static result<raw_mode> enter(raw_options options = {});
     raw_mode() = default;
     raw_mode(raw_mode&&) noexcept;
     raw_mode& operator=(raw_mode&&) noexcept;
@@ -41,3 +49,7 @@ private:
 };
 
 }  // namespace mcpplibs::os::terminal
+
+namespace mcpplibs::os::terminal::sys {
+bool foreground();
+}  // namespace mcpplibs::os::terminal::sys
