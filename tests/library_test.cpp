@@ -8,8 +8,10 @@ import mcpplibs.os;
 namespace os = mcpplibs::os;
 
 int main() {
-    if constexpr (os::is_image) {
-        check(!os::library::open("anything").has_value(), "an image loads no library");
+    if (!os::library::supported()) {
+        // An ok image, or a program linked statically (aarch64 Linux's GCC links musl statically).
+        auto none = os::library::open("anything");
+        check(!none && none.error().code == os::errc::not_supported, "a static program loads no library, and says so");
         return g_failures;
     }
     // A library every process of the system has, and a function of it.

@@ -25,6 +25,8 @@ std::optional<handle> loaded(std::string_view) { return std::nullopt; }
 
 void* process_symbol(std::string_view) { return nullptr; }
 
+bool supported() noexcept { return false; }
+
 std::string_view suffix() noexcept { return ""; }
 
 }  // namespace mcpplibs::os::library

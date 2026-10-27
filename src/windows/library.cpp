@@ -65,6 +65,8 @@ void* process_symbol(std::string_view name) {
     return nullptr;
 }
 
+bool supported() noexcept { return true; }
+
 std::string_view suffix() noexcept { return ".dll"; }
 
 }  // namespace mcpplibs::os::library

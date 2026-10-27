@@ -30,8 +30,19 @@ void* handle::symbol(std::string_view name) const {
     return ::dlsym(native_, n.c_str());
 }
 
+bool supported() noexcept {
+    // A static program's loader is a stub: it gives no handle, not even the program's own.
+    static const bool answer = [] {
+        void* self = ::dlopen(nullptr, RTLD_NOW);
+        if (self) ::dlclose(self);
+        return self != nullptr;
+    }();
+    return answer;
+}
+
 result<handle> open(const std::filesystem::path& file) {
     const std::string name = fs::utf8(file);
+    if (!supported()) return std::unexpected(error{errc::not_supported, std::format("loading {}: the program is linked statically", name), 0});
     void* h = ::dlopen(name.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!h) {
         const char* why = ::dlerror();

@@ -55,6 +55,10 @@ std::optional<handle> loaded(std::string_view name);
 // module of the process, in load order). Nothing when none defines it.
 [[nodiscard]] void* process_symbol(std::string_view name);
 
+// Whether this program can load libraries: not when it is linked statically
+// (a static musl program, an ok image), where `open' answers not_supported.
+[[nodiscard]] bool supported() noexcept;
+
 // The suffix of a shared library of this system: `.so', `.dylib', `.dll'.
 [[nodiscard]] std::string_view suffix() noexcept;
 
