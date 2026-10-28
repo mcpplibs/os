@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.2.2
+
+- **Emscripten (`wasm32-emscripten`).** The package builds for a wasm module
+  over Emscripten's C library and openkal-emscripten 0.6.0, under node or in a
+  page. It adds `platform::emscripten`, `architecture::wasm32` and
+  `is_emscripten`, and selects `src/targets/emscripten.cppm`,
+  `src/arch/wasm32.cppm`, `src/emscripten/` and the C library's part of
+  `src/posix/fs.cpp`. No platform module is defined. A program that starts
+  another fails at link, naming the openkal symbol (`checks/absent`).
+  - `interrupt` reports that no request to end is delivered. Its
+    implementation over openkal's stop word moves to `src/kal/interrupt.cpp`,
+    which every other target selects.
+  - `machine` names `wasm32`, reports the processors Emscripten counts and
+    does not know the memory.
+  - A volume's kind is the file system Emscripten mounted there (`memfs`,
+    `nodefs`, …). Standard output is diverted with the C library's
+    descriptors, which openkal-emscripten's streams are.
+  - CI builds the tests that do not start programs for the target and runs them
+    under node (`checks/emscripten`, debug and release), along with the
+    compile-time constants and the R5 checks.
+- **`fs::read` reads into the string, not through a 64 KiB array on the
+  stack.** That array was all of a wasm module's default stack (65536 bytes)
+  and overflowed it.
+- **An enquiry asks for the kind it reads absence from.** `stamp_of` and
+  `identity_of` asked openkal for the size, the time or the identity, and then
+  read the kind. An implementation fills only the fields it is asked for
+  (openkal-emscripten does), so the kind stayed zero, which is
+  `kal_node_absent`, and an existing file was reported not found.
+- **The tests ask the volume before taking a lock or renaming without
+  replacing,** and on a volume that does neither they check that the request is
+  refused and changes nothing. A test that names its scratch directory after
+  the program uses random bytes where no program is named.
+
 ## 0.2.1
 
 - **The ok-image targets take their C library, C++ run-time and loader from

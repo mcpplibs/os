@@ -250,15 +250,23 @@ result<std::string> read_up_to(const std::filesystem::path& file, std::optional<
     const int rc = kal_fs_open(dir_of(*l), l->relative.data(), l->relative.size(),
                                kal::fs::open::read.bits, &f.f);
     if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("reading {}", generic_utf8(file))));
+    // Read into the string's own storage, not through a buffer on the stack:
+    // a 64 KiB array is all of a wasm module's default stack (Emscripten's
+    // 65536 bytes, where `read' overflowed it) and a large part of a small
+    // thread's.
+    constexpr std::size_t chunk = 65536;
     std::string out;
-    char buf[65536];
     for (;;) {
-        std::size_t want = sizeof buf;
+        std::size_t want = chunk;
         if (at_most) want = std::min(want, *at_most + 1 - out.size());
-        const kal_intptr n = kal_stream_read(kal_fs_stream(f.f), buf, want);
+        const std::size_t at = out.size();
+        kal_intptr n = 0;
+        out.resize_and_overwrite(at + want, [&](char* p, std::size_t) {
+            n = kal_stream_read(kal_fs_stream(f.f), p + at, want);
+            return at + (n > 0 ? static_cast<std::size_t>(n) : 0);
+        });
         if (n < 0) return std::unexpected(from_kal(static_cast<int>(-n), std::format("reading {}", generic_utf8(file))));
         if (n == 0) break;
-        out.append(buf, static_cast<std::size_t>(n));
         if (at_most && out.size() > *at_most)
             return std::unexpected(error{ errc::too_large, std::format("reading {} (more than {} bytes)", generic_utf8(file), *at_most) });
     }
@@ -452,7 +460,11 @@ result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, st
     if (!l) return std::unexpected(l.error());
     kal_node_info i{};
     i.self_size = sizeof i;
-    const int rc = kal_fs_info(dir_of(*l), l->relative.data(), l->relative.size(), 0, wanted, &i);
+    // The kind is asked for as well, because absence is read from it: an
+    // implementation fills only the fields it was asked for (openkal-emscripten
+    // does), and a kind left at zero reads as kal_node_absent.
+    const int rc = kal_fs_info(dir_of(*l), l->relative.data(), l->relative.size(), 0,
+                               wanted | kal::fs::field::kind, &i);
     if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("{} {}", doing, generic_utf8(node))));
     if (i.kind == kal_node_absent) return std::unexpected(error{ errc::not_found, std::format("{} {}", doing, generic_utf8(node)) });
     return i;

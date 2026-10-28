@@ -6,7 +6,7 @@ import std;
 
 export namespace mcpplibs::os {
 
-enum class platform { linux, macos, windows, openkal };
+enum class platform { linux, macos, windows, openkal, emscripten };
 
 inline constexpr platform PLATFORM = platform::openkal;
 

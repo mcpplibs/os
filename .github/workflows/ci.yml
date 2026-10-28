@@ -9,6 +9,9 @@ name: CI
 #              (checks/hosted; mcpp docs/24)
 #   platform   a platform module used outside `if constexpr' for its platform
 #              fails to LINK, and the same use in a discarded branch links (R5)
+#   emscripten the tests that start no program, built for wasm32-emscripten and
+#              run under node (checks/emscripten); a program that starts one
+#              fails at LINK naming the openkal symbol (checks/absent)
 #
 # The library is built with the released mcpp, 2026.10.26.2 or later: the
 # first that compiles a unit with a module map importing another package's
@@ -324,3 +327,75 @@ jobs:
             echo "::endgroup::"
           done
           exit $failed
+
+  # ── EMSCRIPTEN (`wasm32-emscripten`) ────────────────────────────────────────
+  #
+  # A wasm module over Emscripten's C library and openkal-emscripten, run under
+  # node. The toolchain is the target's (emsdk 6.0.9) and the runner is node
+  # from the payload's descriptor. openkal-emscripten has no openkal.process, so
+  # the two suites that start programs are not built; that a program which
+  # starts one fails at link, naming the symbol, is asserted instead.
+  emscripten:
+    name: emscripten (node) ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [dev, release]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install xlings and mcpp
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh \
+            | bash -s "$XLINGS_VERSION"
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          for attempt in 1 2 3 4 5 6; do
+            xlings update > /dev/null 2>&1 || true
+            if xlings install "mcpp@$MCPP_VERSION" -y -g; then break; fi
+            [ "$attempt" = 6 ] && { echo "::error::mcpp could not be installed"; exit 1; }
+            sleep 60
+          done
+          mcpp --version
+          mcpp self config --mirror GLOBAL
+          if [ -n "${MCPP_SOURCE_REF:-}" ]; then
+            src="$RUNNER_TEMP/mcpp-src"
+            git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
+            rm -f "$src/.xlings.json"
+            ( cd "$src" && mcpp build --release )
+            built=$(find "$src/target" -type f -name mcpp | head -1)
+            [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
+            echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
+          fi
+      - name: Every test of the package that starts no program has its counterpart here
+        run: |
+          for t in tests/*_test.cpp; do
+            n=$(basename "$t")
+            case "$n" in process_test.cpp|ipc_test.cpp) continue ;; esac
+            [ -f "checks/emscripten/tests/$n" ] || { echo "::error::checks/emscripten/tests has no $n"; exit 1; }
+          done
+      - name: Tests, under node
+        working-directory: checks/emscripten
+        run: |
+          set -euo pipefail
+          mcpp test --target wasm32-emscripten --profile '${{ matrix.profile }}' 2>&1 | tee tests.log
+          for name in platform_test fs_test dirs_terminal_test linux_test library_test; do
+            grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
+          done
+      - name: The compile-time constants of Emscripten (R3)
+        run: ( cd checks/constants && mcpp build --target wasm32-emscripten ) || { echo "::error::a constant does not hold"; exit 1; }
+      - name: A program that names itself fails at link, naming the openkal symbol
+        run: |
+          if ( cd checks/absent && mcpp build --target wasm32-emscripten ) > absent.log 2>&1; then
+            cat absent.log
+            echo "::error::a program using openkal.process linked for Emscripten"
+            exit 1
+          fi
+          grep -E "^(error|wasm-ld)" absent.log | head -5
+          grep -q "undefined symbol: kal_process_" absent.log \
+            || { cat absent.log; echo "::error::the build did not fail naming an openkal.process symbol"; exit 1; }
+          echo "  ok  the link names the symbol this platform does not have"

@@ -1,7 +1,7 @@
 [package]
 namespace   = "mcpplibs"
 name        = "os"
-version     = "0.2.1"
+version     = "0.2.2"
 description = "mcpplibs.os: a C++ operating-system library over openkal --- processes, files, environment, terminals, directories and local IPC, with compile-time platform constants and a few platform modules."
 license     = "Apache-2.0"
 authors     = ["mcpplibs"]
@@ -23,6 +23,13 @@ openkal-macos = "0.15.1"
 [target.windows.dependencies]
 openkal-windows = "0.13.3"
 
+# Emscripten (`wasm32-emscripten`): openkal written above the C library, with
+# twelve of openkal's fifteen interfaces. `openkal.process', `openkal.exec' and
+# `openkal.space' are absent, so a program that starts one fails at link
+# naming the symbol; `openkal.task' is present in a `-pthread' link only.
+[target.'cfg(os = "emscripten")'.dependencies]
+openkal-emscripten = "0.6.0"
+
 [targets.os]
 kind = "lib"
 
@@ -34,6 +41,12 @@ kind = "lib"
 [build]
 sources = ["src/*.cppm", "src/*.cpp"]
 
+# A request to end, over openkal's stop word and its wait: on every target that
+# has `openkal.process' and `openkal.task'. Emscripten has neither, and its
+# interrupt is src/emscripten/interrupt.cpp.
+[target.'cfg(not(os = "emscripten"))'.build]
+sources = ["src/kal/interrupt.cpp"]
+
 # The architecture of the build, as a constant beside the platform's.
 [target.'cfg(arch = "x86_64")'.build]
 sources = ["src/arch/x86_64.cppm"]
@@ -43,6 +56,9 @@ sources = ["src/arch/aarch64.cppm"]
 
 [target.'cfg(arch = "riscv64")'.build]
 sources = ["src/arch/riscv64.cppm"]
+
+[target.'cfg(arch = "wasm32")'.build]
+sources = ["src/arch/wasm32.cppm"]
 
 [target.linux.build]
 sources = ["src/targets/linux.cppm", "src/linux/*.cpp", "src/posix/*.cpp"]
@@ -83,6 +99,13 @@ sources = ["src/windows/crt/stdio.cpp"]
 
 [target.'cfg(all(windows, c-abi = "musl"))'.build]
 sources = ["src/windows/posix/stdio.cpp"]
+
+# EMSCRIPTEN: a wasm module over Emscripten's C library, under node or in a
+# page. No platform module is defined; the file system's durability and
+# ownership are the C library's (src/posix/fs.cpp), and the rest is
+# src/emscripten/.
+[target.'cfg(os = "emscripten")'.build]
+sources = ["src/targets/emscripten.cppm", "src/emscripten/*.cpp", "src/posix/fs.cpp"]
 
 # AN OK IMAGE (`<arch>-openkal', openkal SPEC clause 12): no implementation
 # beneath --- the loader binds the image's `kal_*' --- and no platform module

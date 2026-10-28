@@ -6,8 +6,16 @@ import mcpplibs.os;
 namespace os = mcpplibs::os;
 namespace stdfs = std::filesystem;
 
+// A name no other run of this test uses at once: this program's identifier,
+// or on Emscripten, which names no program (no `openkal.process'), random
+// bytes; the module's file system is its own there.
+static std::string run_tag() {
+    if constexpr (os::is_emscripten) return os::random::hex(8).value_or("0");
+    else return std::to_string(os::process::self()->id);
+}
+
 int main() {
-    const auto dir = stdfs::temp_directory_path() / std::format("mcpplibs-os-fs-{}", os::process::self()->id);
+    const auto dir = stdfs::temp_directory_path() / std::format("mcpplibs-os-fs-{}", run_tag());
     stdfs::remove_all(dir);
     stdfs::create_directories(dir);
 
@@ -53,12 +61,17 @@ int main() {
     check(!second && second.error().code == os::errc::exists, "a published name is not replaced");
     check(os::fs::read(pub).value_or("") == "first", "and keeps what was published first");
 
-    {
+    // Locks where the volume has them (every native volume here); a volume
+    // without them (MEMFS, Emscripten) refuses rather than pretending.
+    if (!caps || caps->locks) {
         auto a = os::fs::lock::acquire(dir / "lock", os::fs::lock::kind::exclusive, false);
         check(a.has_value() && a->held(), "an exclusive lock is taken");
+    } else {
+        auto a = os::fs::lock::acquire(dir / "lock", os::fs::lock::kind::exclusive, false);
+        check(!a && a.error().code == os::errc::not_supported, "a volume without locks refuses one");
     }
     auto again = os::fs::lock::acquire(dir / "lock", os::fs::lock::kind::exclusive, false);
-    check(again.has_value(), "and is taken again once released");
+    check(again.has_value() || (caps && !caps->locks), "and is taken again once released");
     // A lock held for the rest of the program: the directory is removed below
     // while it is held, where the volume removes a held name at once.
 
@@ -78,7 +91,15 @@ int main() {
             check(stdfs::exists(dir / "link" / "."), "and reaches the directory");
         }
     }
-    check(os::fs::rename(file, dir / "b.txt", false).has_value(), "a rename that does not replace renames to a free name");
+    if (!caps || caps->rename_no_replace) {
+        check(os::fs::rename(file, dir / "b.txt", false).has_value(), "a rename that does not replace renames to a free name");
+    } else {
+        // A volume that cannot test and rename as one act refuses, and renames nothing.
+        const auto r = os::fs::rename(file, dir / "b.txt", false);
+        check(!r && r.error().code == os::errc::not_supported && stdfs::exists(file) && !stdfs::exists(dir / "b.txt"),
+              "a rename that does not replace is refused where the volume cannot, and renames nothing");
+        check(os::fs::rename(file, dir / "b.txt", true).has_value(), "and a rename that replaces renames");
+    }
 
     check(os::fs::names_a_place("bin/tool") && !os::fs::names_a_place("tool"),
           "a name with a separator says where a file is, a bare one does not");
@@ -127,7 +148,7 @@ int main() {
         check(stdfs::exists(f), "and the system sees it under that name");
         check(os::fs::write_atomic(f, "again").has_value() && os::fs::read(f).value_or("") == "again", "replaced all at once");
         const auto moved = sub / os::fs::from_utf8("\xE6\x96\xB0 " + name);
-        check(os::fs::rename(f, moved, false).has_value() && stdfs::exists(moved), "and renamed");
+        check(os::fs::rename(f, moved, caps && !caps->rename_no_replace).has_value() && stdfs::exists(moved), "and renamed");
         const auto missing = os::fs::read(sub / os::fs::from_utf8("\xE6\xB2\xA1\xE6\x9C\x89"));
         check(!missing && missing.error().message().contains("\xE6\xB2\xA1\xE6\x9C\x89"), "an error names the file in UTF-8");
         check(os::fs::generic_utf8(os::fs::absolute(sub)).ends_with(name), "absolute keeps the name");
@@ -144,7 +165,7 @@ int main() {
         {
         // 0.2.0: appending, durability, measured volumes, placing, exchanging.
         const auto dir = std::filesystem::temp_directory_path()
-            / std::format("mcpplibs-os-fs2-{}", os::process::self()->id);
+            / std::format("mcpplibs-os-fs2-{}", run_tag());
         std::filesystem::create_directories(dir);
         check(os::fs::append(dir / "log", "a").has_value() && os::fs::append(dir / "log", "b").has_value()
                   && os::fs::read(dir / "log").value_or("") == "ab",
