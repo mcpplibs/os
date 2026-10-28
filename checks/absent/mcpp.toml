@@ -9,10 +9,3 @@ version = "0.1.0"
 
 [dependencies]
 os = { path = "../.." }
-
-# UNTIL openkal-emscripten 0.6.0 IS IN THE INDEX (mcpplibs/openkal-emscripten#8):
-# the root's declaration settles the package's own `openkal-emscripten =
-# "0.6.0"' (mcpp docs/05, a root `git' declaration wins and the version is
-# checked against the checkout). Removed when the release is published.
-[target.'cfg(os = "emscripten")'.dependencies]
-openkal-emscripten = { git = "https://github.com/mcpplibs/openkal-emscripten.git", rev = "a43f7cd89fea9b9d6101cd8556d6b3f8ab7f7bcd" }
