@@ -240,7 +240,10 @@ std::vector<std::string> preopens() {
     return names;
 }
 
-result<std::string> read(const std::filesystem::path& file) {
+namespace {
+// The whole file, or past `at_most' errc::too_large: each read asks for no more
+// than one byte beyond the bound.
+result<std::string> read_up_to(const std::filesystem::path& file, std::optional<std::size_t> at_most) {
     auto l = where(file, "reading");
     if (!l) return std::unexpected(l.error());
     opened_file f;
@@ -250,13 +253,22 @@ result<std::string> read(const std::filesystem::path& file) {
     std::string out;
     char buf[65536];
     for (;;) {
-        const kal_intptr n = kal_stream_read(kal_fs_stream(f.f), buf, sizeof buf);
+        std::size_t want = sizeof buf;
+        if (at_most) want = std::min(want, *at_most + 1 - out.size());
+        const kal_intptr n = kal_stream_read(kal_fs_stream(f.f), buf, want);
         if (n < 0) return std::unexpected(from_kal(static_cast<int>(-n), std::format("reading {}", generic_utf8(file))));
         if (n == 0) break;
         out.append(buf, static_cast<std::size_t>(n));
+        if (at_most && out.size() > *at_most)
+            return std::unexpected(error{ errc::too_large, std::format("reading {} (more than {} bytes)", generic_utf8(file), *at_most) });
     }
     return out;
 }
+}  // namespace
+
+result<std::string> read(const std::filesystem::path& file) { return read_up_to(file, std::nullopt); }
+
+result<std::string> read(const std::filesystem::path& file, std::size_t at_most) { return read_up_to(file, at_most); }
 
 result<void> write(const std::filesystem::path& file, std::string_view bytes) {
     auto l = where(file, "writing");
@@ -459,6 +471,46 @@ result<identity> identity_of(const std::filesystem::path& node) {
     if ((i->present & kal::fs::field::identity) == 0)
         return std::unexpected(error{ errc::not_supported, std::format("the identity of {}", generic_utf8(node)) });
     return identity{ i->identity[0], i->identity[1] };
+}
+
+std::filesystem::path canonical(const std::filesystem::path& name) {
+    const std::string whole = generic(fs::absolute(name));
+    if (host() == platform::windows) {
+        // A short alias always carries a `~'. A component that does is looked
+        // up among its parent's entries, which are listed by their long names,
+        // and replaced by the entry that is the same node.
+        const std::size_t rootLen = root_length(whole, true);
+        std::string current = whole.substr(0, rootLen);
+        std::string_view rest = std::string_view(whole).substr(rootLen);
+        while (!rest.empty()) {
+            const auto slash = rest.find('/');
+            const std::string part(rest.substr(0, slash));
+            rest = slash == std::string_view::npos ? std::string_view{} : rest.substr(slash + 1);
+            if (part.empty()) continue;
+            const std::string joint = current.empty() || current.ends_with('/') ? "" : "/";
+            std::string next = current + joint + part;
+            if (part.find('~') != std::string::npos) {
+                if (const auto id = identity_of(from_utf8(next))) {
+                    std::error_code ec;
+                    for (std::filesystem::directory_iterator it(from_utf8(current), ec), end; !ec && it != end; it.increment(ec)) {
+                        const std::string entry = generic_utf8(it->path().filename());
+                        if (entry.find('~') != std::string::npos) continue;
+                        if (const auto other = identity_of(it->path()); other && *other == *id) {
+                            next = current + joint + entry;
+                            break;
+                        }
+                    }
+                }
+            }
+            current = std::move(next);
+        }
+        return from_utf8(current);
+    }
+    // Elsewhere the part that exists has its links followed and the rest is kept.
+    std::error_code ec;
+    const auto resolved = std::filesystem::weakly_canonical(from_utf8(whole), ec);
+    if (ec || resolved.empty()) return from_utf8(whole);
+    return from_utf8(generic(resolved));
 }
 
 result<void> rename(const std::filesystem::path& from, const std::filesystem::path& to, bool replace) {

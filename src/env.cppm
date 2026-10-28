@@ -18,6 +18,13 @@ std::optional<std::string> get(std::string_view name);
 // Every variable, as `NAME=value', in an order that does not change.
 std::vector<std::string> variables();
 
+// `NAME=value' entries --- as `variables' gives them, or as a program states
+// an environment of its own --- as the overrides `process::spawn_options'
+// states a started program's environment in (0.2.1). An entry with no `='
+// after its first character is left out: on Windows a variable may begin
+// with one (`=C:').
+std::vector<std::pair<std::string, std::optional<std::string>>> assignments(std::span<const std::string> entries);
+
 // The arguments, the first being the name the program was started by.
 std::vector<std::string> arguments();
 

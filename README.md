@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.0" }
+os = { namespace = "mcpplibs", version = "0.2.1" }
 ```
 
 ```cpp
@@ -34,15 +34,37 @@ what is not a kernel question: the machine beneath the system (`machine`), the d
 loader (`library`: the C library's on Linux and macOS, kernel32's on Windows), and the
 platform modules.
 
+## The program's C library
+
+A program over this package chooses its C library. It can be the system's own (glibc,
+libSystem, the Microsoft C runtime), or one that sits on openkal on the system's own
+triple: openkal-musl with openkal-llvm-runtime (mcpp `docs/24`). The package behaves the
+same under either.
+
+Native code beside openkal reaches each system through that system's stable interface,
+never through the C library, because a C library on openkal presents POSIX and openkal
+rather than the system:
+
+| System | How native code reaches it |
+|---|---|
+| Linux | the kernel's calls, one trap per architecture (`src/linux/kernel.h`) |
+| macOS | the kernel's calls (`src/macos/kernel.h`), and the libSystem names no C library defines (`src/macos/darwin.h`) |
+| Windows | kernel32 and advapi32, with DWORD as 32 bits and WCHAR as UTF-16 under every C environment (`src/windows/win32.h`) |
+
+The standard output's diversion and the ending for a closed reader act on the process
+itself: the kernel's descriptors and dispositions, or on Windows the process's standard
+handles. `checks/hosted` runs the tests under openkal-musl and openkal-llvm-runtime on
+every system in CI.
+
 ## Modules
 
 | Module | Contents |
 |---|---|
 | `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
-| `mcpplibs.os.env` | variables (names without case on Windows), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
-| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
-| `mcpplibs.os.process` | `spawn`, `run`, `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive` |
+| `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
+| `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
+| `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |
 | `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`) |
 | `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` (with or without the interrupting keystroke), `foreground` |
@@ -77,8 +99,10 @@ platform modules.
   nothing else. The tests write, read and rename names in four scripts.
 
 Interface units import `std` and contain no system header and no macro. Implementation units
-on openkal import only `openkal.*`. The Windows units declare the functions they call
-themselves (`src/windows/win32.h`).
+on openkal import only `openkal.*`. The Windows and macOS units declare the functions they
+call themselves (`src/windows/win32.h`, `src/macos/darwin.h`). Linux's and macOS's kernel
+calls are in `src/linux/arch/` and `src/macos/arch/`, which the manifest selects by
+architecture.
 
 ## As an ok image
 
@@ -95,8 +119,10 @@ name's spelling is the host's as well: `os::fs::absolute()` and
 `os::fs::names_a_place()` read `C:\x` and `bin\x` as Windows does when the
 image runs there, where the standard library inside an image reads names as
 POSIX does. The
-image carries its C library and C++ run-time (`openkal-llvm-runtime`); the
-tests are built as images in CI and run through okrun on four systems, and
+image carries its C library and C++ run-time, which with the loader are the
+image's platform's (openkal-platform, selected by mcpp 2026.10.27.1 and later
+for `<arch>-openkal`; this package declares none of them); the tests are built
+as images in CI and run through okrun on four systems, and
 `checks/constants` holds the compile-time facts of a native target.
 
 ## License

@@ -37,6 +37,17 @@ std::vector<std::string> variables() {
     return out;
 }
 
+std::vector<std::pair<std::string, std::optional<std::string>>> assignments(std::span<const std::string> entries) {
+    std::vector<std::pair<std::string, std::optional<std::string>>> out;
+    out.reserve(entries.size());
+    for (const auto& entry : entries) {
+        const auto equals = entry.find('=', 1);
+        if (equals == std::string::npos) continue;
+        out.emplace_back(entry.substr(0, equals), entry.substr(equals + 1));
+    }
+    return out;
+}
+
 std::vector<std::string> arguments() {
     std::vector<std::string> out;
     const kal_uintptr n = kal_env_arg_count();

@@ -1,0 +1,20 @@
+# The package's tests in the arrangement a program over openkal chooses on a
+# system's own triple: openkal-platform's hosted arrangement (mcpp SPEC-013
+# §5.4), whose toolchain, C library (openkal-musl) and C++ run-time
+# (openkal-llvm-runtime) stand above openkal's implementation for that system.
+# The units of this package that reach the system beside openkal then see
+# musl's headers, POSIX's names and the data model and `wchar_t' the C library
+# declares, not the system's SDK.
+[package]
+name    = "os-check-hosted"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }
+
+[target.'cfg(any(linux, macos, windows))']
+platform = "openkal-platform@0.17.3"
+
+# The tests are the package's own, each reached by an include from
+# tests/<name>.cpp here (a test program is a file of the package that runs it).
+# CI checks that every test of the package has its counterpart.

@@ -19,6 +19,29 @@ int main() {
     check(os::fs::read(file).value_or("") == "one", "and read back");
     check(os::fs::write_atomic(file, "two").has_value(), "and replaced all at once");
     check(os::fs::read(file).value_or("") == "two", "and the replacement is read");
+    // 0.2.1: a read with a bound.
+    check(os::fs::read(file, 3).value_or("") == "two", "a file within the bound is read whole");
+    {
+        const auto over = os::fs::read(file, 2);
+        check(!over && over.error().code == os::errc::too_large, "and one past it is refused as too large");
+    }
+    // 0.2.1: the name a node is known by.
+    {
+        const auto canonical = os::fs::canonical(dir / "." / "sub" / ".." / file.filename());
+        check(os::fs::same(canonical, os::fs::canonical(file)) && os::fs::is_absolute(canonical),
+              "a name and another of the same node have one canonical name");
+        const auto missing = os::fs::canonical(dir / "not-there" / "deeper");
+        check(os::fs::generic(missing).ends_with("not-there/deeper"), "and the part that does not exist is kept as written");
+        if constexpr (os::is_posix) {
+            std::error_code ec;
+            stdfs::create_directory_symlink(dir, dir.parent_path() / std::format("{}-link", dir.filename().string()), ec);
+            if (!ec) {
+                const auto through = os::fs::canonical(dir.parent_path() / std::format("{}-link", dir.filename().string()) / file.filename());
+                check(os::fs::same(through, os::fs::canonical(file)), "a link is followed");
+                stdfs::remove(dir.parent_path() / std::format("{}-link", dir.filename().string()), ec);
+            }
+        }
+    }
 
     const auto caps = os::fs::caps(dir);
     check(caps.has_value(), "the volume says what it can do");
@@ -130,6 +153,9 @@ int main() {
               "a file and a directory are made durable");
         const auto b = os::fs::measure(dir);
         check(b.measured, "a writable directory's volume is measured");
+        // The kind of a volume is the system's to name; an image is not told it.
+        if constexpr (!os::is_image)
+            check(!b.type.empty() && b.type != "0x0", "and its kind is named by the system");
         (void)os::fs::write(dir / "x", "x");
         check(os::fs::place(dir / "x", dir / "y").has_value() && os::fs::read(dir / "y").value_or("") == "x"
                   && !std::filesystem::exists(dir / "x"),

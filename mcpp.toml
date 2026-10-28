@@ -1,7 +1,7 @@
 [package]
 namespace   = "mcpplibs"
 name        = "os"
-version     = "0.2.0"
+version     = "0.2.1"
 description = "mcpplibs.os: a C++ operating-system library over openkal --- processes, files, environment, terminals, directories and local IPC, with compile-time platform constants and a few platform modules."
 license     = "Apache-2.0"
 authors     = ["mcpplibs"]
@@ -47,11 +47,42 @@ sources = ["src/arch/riscv64.cppm"]
 [target.linux.build]
 sources = ["src/targets/linux.cppm", "src/linux/*.cpp", "src/posix/*.cpp"]
 
+# The kernel's calls (src/linux/kernel.h): the trap of each architecture.
+[target.'cfg(all(linux, arch = "x86_64"))'.build]
+sources = ["src/linux/arch/x86_64.cpp"]
+
+[target.'cfg(all(linux, arch = "aarch64"))'.build]
+sources = ["src/linux/arch/aarch64.cpp"]
+
+[target.'cfg(all(linux, arch = "riscv64"))'.build]
+sources = ["src/linux/arch/riscv64.cpp"]
+
 [target.macos.build]
 sources = ["src/targets/macos.cppm", "src/macos/*.cpp", "src/posix/*.cpp"]
+# libSystem's names the macOS units call (src/macos/darwin.h), allowed to be
+# absent from a link whose libSystem is openkal-macos's stub: the loader finds
+# them in libSystem. A link against the SDK binds them as usual.
+ldflags = ["-Wl,-U,_sysctlbyname", "-Wl,-U,_mach_host_self", "-Wl,-U,_host_page_size",
+           "-Wl,-U,_host_statistics64"]
+
+[target.'cfg(all(macos, arch = "x86_64"))'.build]
+sources = ["src/macos/arch/x86_64.cpp"]
+
+[target.'cfg(all(macos, arch = "aarch64"))'.build]
+sources = ["src/macos/arch/aarch64.cpp"]
 
 [target.windows.build]
 sources = ["src/targets/windows.cppm", "src/windows/*.cpp"]
+
+# The standard output is diverted where the C library keeps it: the Microsoft
+# C runtime's descriptors, which set the process's standard handles too; or,
+# for a C library on openkal (openkal-musl), that library's descriptors and the
+# process's standard handles, each kept apart.
+[target.'cfg(all(windows, not(c-abi = "musl")))'.build]
+sources = ["src/windows/crt/stdio.cpp"]
+
+[target.'cfg(all(windows, c-abi = "musl"))'.build]
+sources = ["src/windows/posix/stdio.cpp"]
 
 # AN OK IMAGE (`<arch>-openkal', openkal SPEC clause 12): no implementation
 # beneath --- the loader binds the image's `kal_*' --- and no platform module
@@ -59,10 +90,6 @@ sources = ["src/targets/windows.cppm", "src/windows/*.cpp"]
 [target.'cfg(os = "openkal")'.build]
 sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
 
-# The tests of this package, built as images, carry the C library and the C++
-# run-time an image holds, and the loader that runs them.
-[target.'cfg(os = "openkal")'.dev-dependencies]
-openkal-llvm-runtime = "0.16.3"
-
-[target.'cfg(os = "openkal")'.build-dependencies]
-openkal-tools = { version = "0.1.1", tools = ["okld", "okrun"] }
+# The C library, the C++ run-time and the loader of an image are its
+# platform's: mcpp 2026.10.27.1 and later select openkal-platform for
+# `<arch>-openkal` (mcpp SPEC-013), so this package declares none of them.

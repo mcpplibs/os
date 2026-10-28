@@ -6,12 +6,18 @@ module mcpplibs.os.windows;
 import std;
 import mcpplibs.os.fs;
 
+#include "text.h"
+
 namespace mcpplibs::os::windows {
+
+namespace {
+okos_handle invalid() { return reinterpret_cast<okos_handle>(static_cast<std::intptr_t>(-1)); }
+}  // namespace
 
 bool elevated() {
     using open_token = okos_bool (__stdcall*)(okos_handle, okos_dword, okos_handle*);
     using token_information = okos_bool (__stdcall*)(okos_handle, int, void*, okos_dword, okos_dword*);
-    const okos_handle advapi = LoadLibraryW(L"advapi32.dll");
+    const okos_handle advapi = LoadLibraryW(u"advapi32.dll");
     if (!advapi) return false;
     const auto open = reinterpret_cast<open_token>(GetProcAddress(advapi, "OpenProcessToken"));
     const auto query = reinterpret_cast<token_information>(GetProcAddress(advapi, "GetTokenInformation"));
@@ -26,14 +32,11 @@ bool elevated() {
 }
 
 std::optional<bool> on_dev_drive(const std::filesystem::path& directory) {
-    const std::string utf8 = fs::utf8(directory);
-    const int n = MultiByteToWideChar(65001, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-    if (n <= 0) return std::nullopt;
-    std::wstring wide(static_cast<std::size_t>(n), L'\0');
-    MultiByteToWideChar(65001, 0, utf8.data(), static_cast<int>(utf8.size()), wide.data(), n);
+    const std::u16string wide = utf16_from_path(directory);
+    if (wide.empty()) return std::nullopt;
     const okos_handle h = CreateFileW(wide.c_str(), 0x0080 /* FILE_READ_ATTRIBUTES */, 0x7, nullptr,
                                       3 /* OPEN_EXISTING */, 0x02000000 /* BACKUP_SEMANTICS */, nullptr);
-    if (h == reinterpret_cast<okos_handle>(static_cast<std::intptr_t>(-1)) || h == nullptr) return std::nullopt;
+    if (h == invalid() || h == nullptr) return std::nullopt;
     okos_persistent_volume info{};
     info.version = 1;
     info.flag_mask = 0x00002000;                  // PERSISTENT_VOLUME_STATE_DEV_VOLUME
@@ -45,19 +48,22 @@ std::optional<bool> on_dev_drive(const std::filesystem::path& directory) {
     return (info.volume_flags & 0x00002000) != 0;
 }
 
-unsigned code_page() { return GetACP(); }
+unsigned code_page() { return late::GetACP(); }
 
+// The process's standard handle: what the stream writes to under every C
+// environment, and what a started program receives.
 unsigned console_output_code_page(bool error_stream) {
-    const long long h = _get_osfhandle(error_stream ? 2 : 1);
+    const okos_handle h = GetStdHandle(static_cast<okos_dword>(error_stream ? -12 : -11));
     okos_dword mode = 0;
-    if (h == -1 || !GetConsoleMode(reinterpret_cast<okos_handle>(h), &mode)) return 0;
-    return GetConsoleOutputCP();
+    if (h == nullptr || h == invalid() || !GetConsoleMode(h, &mode)) return 0;
+    return late::GetConsoleOutputCP();
 }
 
 namespace {
-using reg_get_value = long (__stdcall*)(void*, const wchar_t*, const wchar_t*, okos_dword, okos_dword*, void*, okos_dword*);
+using reg_get_value = int (__stdcall*)(void*, const okos_wchar*, const okos_wchar*, okos_dword, okos_dword*, void*,
+                                       okos_dword*);
 reg_get_value registry_reader() {
-    const okos_handle advapi = LoadLibraryW(L"advapi32.dll");
+    const okos_handle advapi = LoadLibraryW(u"advapi32.dll");
     return advapi ? reinterpret_cast<reg_get_value>(GetProcAddress(advapi, "RegGetValueW")) : nullptr;
 }
 void* const kLocalMachine = reinterpret_cast<void*>(static_cast<std::intptr_t>(static_cast<std::int32_t>(0x80000002)));
@@ -67,7 +73,7 @@ bool long_paths_enabled() {
     const auto get = registry_reader();
     if (!get) return false;
     okos_dword value = 0, bytes = sizeof value;
-    return get(kLocalMachine, L"SYSTEM\\CurrentControlSet\\Control\\FileSystem", L"LongPathsEnabled",
+    return get(kLocalMachine, u"SYSTEM\\CurrentControlSet\\Control\\FileSystem", u"LongPathsEnabled",
                0x10 /* RRF_RT_REG_DWORD */, nullptr, &value, &bytes) == 0
         && value == 1;
 }
@@ -75,36 +81,36 @@ bool long_paths_enabled() {
 std::optional<std::filesystem::path> machine_registry_path(std::wstring_view key, std::wstring_view value) {
     const auto get = registry_reader();
     if (!get) return std::nullopt;
-    const std::wstring k(key), v(value);
+    const std::u16string k = utf16_from_wide(key), v = utf16_from_wide(value);
     for (const okos_dword view : { okos_dword{ 0x0100 } /* KEY_WOW64_64KEY */, okos_dword{ 0x0200 } /* 32KEY */ }) {
         okos_dword bytes = 0;
         if (get(kLocalMachine, k.c_str(), v.c_str(), 0x2 /* RRF_RT_REG_SZ */ | view, nullptr, nullptr, &bytes) != 0
-            || bytes < sizeof(wchar_t))
+            || bytes < sizeof(okos_wchar))
             continue;
-        std::wstring buf(bytes / sizeof(wchar_t), L'\0');
+        std::u16string buf(bytes / sizeof(okos_wchar), u'\0');
         if (get(kLocalMachine, k.c_str(), v.c_str(), 0x2 | view, nullptr, buf.data(), &bytes) != 0) continue;
-        while (!buf.empty() && (buf.back() == L'\0' || buf.back() == L'\\')) buf.pop_back();
-        if (!buf.empty()) return std::filesystem::path(buf);
+        while (!buf.empty() && (buf.back() == u'\0' || buf.back() == u'\\')) buf.pop_back();
+        if (!buf.empty()) return path_from_utf16(buf);
     }
     return std::nullopt;
 }
 
 bool writable_fixed_drive(char drive, std::wstring_view child) {
-    const wchar_t root[] = { static_cast<wchar_t>(drive), L':', L'\\', L'\0' };
-    if (GetDriveTypeW(root) != 3 /* DRIVE_FIXED */) return false;
-    const auto candidate = std::filesystem::path(root) / child;
-    const auto attributes = GetFileAttributesW(candidate.c_str());
+    const std::u16string root = { static_cast<okos_wchar>(drive), u':', u'\\' };
+    if (late::GetDriveTypeW(root.c_str()) != 3 /* DRIVE_FIXED */) return false;
+    const std::u16string candidate = root + utf16_from_wide(child);
+    const auto attributes = late::GetFileAttributesW(candidate.c_str());
     if (attributes == 0xFFFFFFFFu) {
         const auto e = GetLastError();
         if (e != 2 /* FILE_NOT_FOUND */ && e != 3 /* PATH_NOT_FOUND */) return false;
     } else if (!(attributes & 0x10 /* DIRECTORY */) || (attributes & 0x400 /* REPARSE_POINT */)) {
         return false;
     }
-    const auto probe = std::filesystem::path(root)
-        / std::format(".os-write-{}-{}", GetCurrentProcessId(), GetTickCount64());
+    const std::u16string probe =
+        root + utf16_from_utf8(std::format(".os-write-{}-{}", GetCurrentProcessId(), late::GetTickCount64()));
     const okos_handle h = CreateFileW(probe.c_str(), 0x40000000 /* GENERIC_WRITE */, 0, nullptr,
                                       1 /* CREATE_NEW */, 0x100 | 0x04000000 /* TEMPORARY | DELETE_ON_CLOSE */, nullptr);
-    if (h == reinterpret_cast<okos_handle>(static_cast<std::intptr_t>(-1)) || h == nullptr) return false;
+    if (h == invalid() || h == nullptr) return false;
     CloseHandle(h);
     return true;
 }

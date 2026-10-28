@@ -1,5 +1,5 @@
 module;
-#include <sys/sysctl.h>
+#include "darwin.h"
 
 module mcpplibs.os.macos;
 
@@ -9,7 +9,7 @@ namespace mcpplibs::os::macos {
 
 bool translated() {
     int v = 0;
-    std::size_t len = sizeof v;
+    unsigned long len = sizeof v;
     return ::sysctlbyname("sysctl.proc_translated", &v, &len, nullptr, 0) == 0 && v == 1;
 }
 

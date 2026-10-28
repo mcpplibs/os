@@ -9,7 +9,7 @@ namespace mcpplibs::os::machine {
 
 std::string arch() {
     unsigned short process = 0, native = 0;
-    if (!IsWow64Process2(GetCurrentProcess(), &process, &native)) return {};
+    if (!late::IsWow64Process2(GetCurrentProcess(), &process, &native)) return {};
     switch (native) {
         case 0x8664: return "x86_64";     // IMAGE_FILE_MACHINE_AMD64
         case 0xAA64: return "aarch64";    // IMAGE_FILE_MACHINE_ARM64
@@ -21,29 +21,29 @@ std::string arch() {
 std::optional<std::uint64_t> memory() {
     okos_memory_status s{};
     s.length = sizeof s;
-    if (!GlobalMemoryStatusEx(&s)) return std::nullopt;
+    if (!late::GlobalMemoryStatusEx(&s)) return std::nullopt;
     return s.total_physical;
 }
 
 std::optional<std::uint64_t> memory_available() {
     okos_memory_status s{};
     s.length = sizeof s;
-    if (!GlobalMemoryStatusEx(&s)) return std::nullopt;
+    if (!late::GlobalMemoryStatusEx(&s)) return std::nullopt;
     return s.available_physical;
 }
 
 processor_count processors() {
     processor_count c;
-    const auto n = GetActiveProcessorCount(0xffff /* ALL_PROCESSOR_GROUPS */);
+    const auto n = late::GetActiveProcessorCount(0xffff /* ALL_PROCESSOR_GROUPS */);
     if (n > 0) c.logical = static_cast<std::uint32_t>(n);
     c.physical = c.logical;
     // One record per core (RelationProcessorCore): the count, and an
     // efficiency class that differs between cores of differing speed.
     okos_dword bytes = 0;
-    GetLogicalProcessorInformationEx(0 /* RelationProcessorCore */, nullptr, &bytes);
+    late::GetLogicalProcessorInformationEx(0 /* RelationProcessorCore */, nullptr, &bytes);
     if (bytes == 0) return c;
     std::vector<unsigned char> buf(bytes);
-    if (!GetLogicalProcessorInformationEx(0, buf.data(), &bytes)) return c;
+    if (!late::GetLogicalProcessorInformationEx(0, buf.data(), &bytes)) return c;
     std::uint32_t count = 0;
     int first = -1;
     for (okos_dword off = 0; off + 8 < bytes;) {
