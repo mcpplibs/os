@@ -1,3 +1,6 @@
+// mcpplibs.os.interrupt over openkal's stop word (`openkal.process') and its
+// wait (`openkal.task'): every target but Emscripten, which has neither
+// interface (src/emscripten/interrupt.cpp).
 module mcpplibs.os.interrupt;
 
 import std;

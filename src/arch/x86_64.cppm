@@ -4,7 +4,7 @@ export module mcpplibs.os.platform:arch;
 
 export namespace mcpplibs::os {
 
-enum class architecture { x86_64, aarch64, riscv64 };
+enum class architecture { x86_64, aarch64, riscv64, wasm32 };
 
 // What the program is built for. The machine it runs upon may differ (a
 // translated program); `machine::arch()' answers that.

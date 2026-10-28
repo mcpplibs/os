@@ -1,0 +1,20 @@
+# The package's tests built for Emscripten (`wasm32-emscripten') and run under
+# node: a wasm module over Emscripten's C library and openkal-emscripten.
+#
+# Every test of the package has its counterpart here except the two that start
+# programs (process_test, ipc_test): openkal-emscripten provides no
+# `openkal.process', so a program that starts one fails at link naming the
+# symbol, which CI asserts instead (absent/).
+[package]
+name    = "os-check-emscripten"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }
+
+# UNTIL openkal-emscripten 0.6.0 IS IN THE INDEX (mcpplibs/openkal-emscripten#8):
+# the root's declaration settles the package's own `openkal-emscripten =
+# "0.6.0"' (mcpp docs/05, a root `git' declaration wins and the version is
+# checked against the checkout). Removed when the release is published.
+[target.'cfg(os = "emscripten")'.dependencies]
+openkal-emscripten = { git = "https://github.com/mcpplibs/openkal-emscripten.git", rev = "a43f7cd89fea9b9d6101cd8556d6b3f8ab7f7bcd" }
