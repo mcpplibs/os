@@ -60,7 +60,7 @@ every system in CI.
 
 | Module | Contents |
 |---|---|
-| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
+| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
@@ -124,6 +124,24 @@ image's platform's (openkal-platform, selected by mcpp 2026.10.27.1 and later
 for `<arch>-openkal`; this package declares none of them); the tests are built
 as images in CI and run through okrun on four systems, and
 `checks/constants` holds the compile-time facts of a native target.
+
+## On Emscripten
+
+Built for `wasm32-emscripten`, a program over this library is a wasm module
+that runs under node or in a page, over Emscripten's C library and
+openkal-emscripten. `os::PLATFORM` is `platform::emscripten`, `os::ARCH` is
+`architecture::wasm32`, and `os::host()` is a constant expression, as on a
+native target. Files are the module's own file system (MEMFS, one supplied
+directory at `/`); `os::fs::caps()` says what it does: no locks, and no rename
+that refuses to replace, so `publish` takes the name exclusively and
+`rename(…, false)` is refused rather than tested and then done. A program is
+not started and a library is not loaded: openkal-emscripten provides no
+`openkal.process`, so a program that starts one, or names itself
+(`process::self`), fails at link naming the symbol (`checks/absent`), and
+`library::supported()` is false. No request to end is delivered
+(`interrupt::available()` is false). The machine is named `wasm32` and its
+memory is not known. The tests that do not start programs are built for the
+target in CI and run under node (`checks/emscripten`).
 
 ## License
 

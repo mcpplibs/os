@@ -8,9 +8,11 @@ import mcpplibs.os;
 
 namespace os = mcpplibs::os;
 
-static_assert(os::is_linux + os::is_macos + os::is_windows + os::is_image == 1);
+static_assert(os::is_linux + os::is_macos + os::is_windows + os::is_image + os::is_emscripten == 1);
 static_assert(os::is_posix == (os::is_linux || os::is_macos));
-static_assert(os::name(os::ARCH) == "x86_64" || os::name(os::ARCH) == "aarch64" || os::name(os::ARCH) == "riscv64");
+static_assert(os::name(os::ARCH) == "x86_64" || os::name(os::ARCH) == "aarch64" || os::name(os::ARCH) == "riscv64"
+              || os::name(os::ARCH) == "wasm32");
+static_assert(os::is_emscripten == (os::name(os::ARCH) == "wasm32"));
 
 int main() {
     const auto host = os::host();
@@ -27,14 +29,21 @@ int main() {
     // library answers the program's other questions.
     if constexpr (os::is_linux)
         check(os::machine::arch() == os::name(os::ARCH), "Linux: the machine is the processor the program runs on");
-    if constexpr (!os::is_image)
+    // A wasm module is told nothing of the machine beneath its host but the
+    // number of processors, and it runs the instructions it was built for.
+    if constexpr (os::is_emscripten) {
+        check(os::machine::arch() == "wasm32", "Emscripten: the machine is the module's");
+        check(!os::machine::memory() && !os::machine::memory_available(), "Emscripten: the machine's memory is not known");
+    }
+    if constexpr (!os::is_image && !os::is_emscripten)
         check(os::machine::memory().value_or(0) > 0, "the machine's memory is known");
     const auto a = os::random::hex(16), b = os::random::hex(16);
     check(a && a->size() == 32 && b && *a != *b, "the system's source gives bytes that differ from call to call");
         {
         const auto p = os::machine::processors();
         check(p.logical >= 1 && p.physical >= 1 && p.physical <= p.logical, "processors: logical and physical counted");
-        if (!os::is_image) check(os::machine::memory_available().value_or(0) > 0, "and the memory available now");
+        if (!os::is_image && !os::is_emscripten)
+            check(os::machine::memory_available().value_or(0) > 0, "and the memory available now");
     }
     if constexpr (os::is_windows) {
         check(os::windows::code_page() != 0, "Windows: the ANSI code page is known");

@@ -27,6 +27,10 @@ inline constexpr bool is_macos   = PLATFORM == platform::macos;
 inline constexpr bool is_windows = PLATFORM == platform::windows;
 inline constexpr bool is_posix   = is_linux || is_macos;
 inline constexpr bool is_image   = PLATFORM == platform::openkal;
+// A wasm module over Emscripten's C library (0.2.2): no program is started and
+// no library loaded, the file system is the module's own (MEMFS), and the
+// streams are the host's.
+inline constexpr bool is_emscripten = PLATFORM == platform::emscripten;
 
 // The name of a platform, as mcpp's target vocabulary and openkal's
 // `kal_env_system' spell it.
@@ -36,6 +40,7 @@ constexpr std::string_view name(platform p) noexcept {
         case platform::macos:   return "macos";
         case platform::windows: return "windows";
         case platform::openkal: return "openkal";
+        case platform::emscripten: return "emscripten";
     }
     return "unknown";
 }
@@ -45,6 +50,7 @@ constexpr std::string_view name(architecture a) noexcept {
         case architecture::x86_64:  return "x86_64";
         case architecture::aarch64: return "aarch64";
         case architecture::riscv64: return "riscv64";
+        case architecture::wasm32:  return "wasm32";
     }
     return "unknown";
 }

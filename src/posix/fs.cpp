@@ -1,5 +1,5 @@
-// What Linux and macOS share of mcpplibs.os.fs's own: durability, ownership,
-// whether a node may be written.
+// What Linux, macOS and Emscripten share of mcpplibs.os.fs's own, from the C
+// library: durability, ownership, whether a node may be written.
 module;
 #include <cerrno>
 #include <fcntl.h>

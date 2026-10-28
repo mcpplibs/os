@@ -1,0 +1,11 @@
+# Built for Emscripten only, and expected NOT to link: openkal-emscripten
+# provides no `openkal.process', so a program that names itself or starts
+# another fails at link naming the openkal symbol (openkal SPEC clause 6.2's
+# second time), rather than at run time with an error a caller cannot tell
+# from a condition. CI asserts the failure and the name.
+[package]
+name    = "os-check-absent"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }
