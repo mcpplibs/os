@@ -10,10 +10,11 @@ name: CI
 #   platform   a platform module used outside `if constexpr' for its platform
 #              fails to LINK, and the same use in a discarded branch links (R5)
 #
-# The library is built with the released mcpp, 2026.10.26.2 or later: the
-# first that compiles a unit with a module map importing another package's
-# module through a third under GCC (`mcpplibs.os.terminal' through
-# `mcpplibs.os.error', mcpp part 2 design §10.2) and builds the ok images.
+# The library is built with the released mcpp, 2026.10.27.1 or later: the
+# first that selects a platform (SPEC-013), which the ok images and
+# checks/hosted take their C library and C++ run-time from (openkal-platform
+# 0.17.3), after 2026.10.26.2 compiled a unit with a module map importing
+# another package's module through a third under GCC.
 # A dispatch may name a branch of mcpp instead (`mcpp_ref'), which is then
 # built and used.
 
@@ -30,7 +31,7 @@ on:
 
 env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
-  MCPP_VERSION: 2026.10.26.2
+  MCPP_VERSION: 2026.10.27.1
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
