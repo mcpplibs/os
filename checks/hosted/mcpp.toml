@@ -13,7 +13,7 @@ version = "0.1.0"
 os = { path = "../.." }
 
 [target.'cfg(any(linux, macos, windows))']
-platform = "openkal-platform@0.17.3"
+platform = "openkal-platform@0.18.0"
 
 # The tests are the package's own, each reached by an include from
 # tests/<name>.cpp here (a test program is a file of the package that runs it).
