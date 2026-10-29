@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.1" }
+os = { namespace = "mcpplibs", version = "0.2.3" }
 ```
 
 ```cpp
