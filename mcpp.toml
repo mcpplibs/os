@@ -1,7 +1,7 @@
 [package]
 namespace   = "mcpplibs"
 name        = "os"
-version     = "0.2.2"
+version     = "0.2.3"
 description = "mcpplibs.os: a C++ operating-system library over openkal --- processes, files, environment, terminals, directories and local IPC, with compile-time platform constants and a few platform modules."
 license     = "Apache-2.0"
 authors     = ["mcpplibs"]
@@ -15,7 +15,7 @@ repo        = "https://github.com/mcpplibs/os"
 openkal = "0.17.1"
 
 [target.linux.dependencies]
-openkal-linux = "0.18.2"
+openkal-linux = "0.18.3"
 
 [target.macos.dependencies]
 openkal-macos = "0.15.1"

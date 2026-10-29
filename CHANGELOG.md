@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.3
+
+- **openkal-linux 0.18.3.** Every directory handle is opened with `O_PATH`, so a
+  program started by absolute name is found in a directory the process may
+  search but not read. In the Android app sandbox (`run-as`, SELinux
+  `runas_app`) the root directory could not be opened for reading, and every
+  `process::spawn` by absolute path failed as not found (mcpp-community/mcpp#857).
+
 ## 0.2.2
 
 - **Emscripten (`wasm32-emscripten`).** The package builds for a wasm module
