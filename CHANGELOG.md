@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.4
+
+- **openkal 0.18.** The implementations of openkal 0.18 (openkal-linux 0.19.0,
+  openkal-macos 0.16.0, openkal-windows 0.14.0), which provide `openkal.map`;
+  `checks/hosted` takes its C library and C++ run-time from openkal-platform
+  0.19.0, whose okrun maps the image it runs. Emscripten takes
+  openkal-emscripten 0.7.0, written against openkal 0.18.0, which leaves
+  `openkal.map` absent.
+- **An ok image over this release selects openkal-platform 0.19.0** or a
+  later group naming openkal 0.18 (`platform = "openkal-platform@0.19.0"` under
+  the `openkal` target, or `--platform`): the openkal rows of mcpp 2026.10.31.2
+  pin 0.18.0, whose group names openkal 0.17.1.
+
 ## 0.2.3
 
 - **openkal-linux 0.18.3.** Every directory handle is opened with `O_PATH`, so a
