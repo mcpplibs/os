@@ -8,6 +8,10 @@
   0.19.0, whose okrun maps the image it runs. Emscripten takes
   openkal-emscripten 0.7.0, written against openkal 0.18.0, which leaves
   `openkal.map` absent.
+- **An ok image over this release selects openkal-platform 0.19.0** or a
+  later group naming openkal 0.18 (`platform = "openkal-platform@0.19.0"` under
+  the `openkal` target, or `--platform`): the openkal rows of mcpp 2026.10.31.2
+  pin 0.18.0, whose group names openkal 0.17.1.
 
 ## 0.2.3
 
