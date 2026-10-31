@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.5
+
+- **openkal 0.19.** The implementations of openkal 0.19 (openkal-linux 0.20.0,
+  openkal-macos 0.17.0, openkal-windows 0.15.0, openkal-emscripten 0.8.0), which
+  state the physical cores and set a context's claim on the processors
+  (`kal_task_cores`, `kal_task_set_priority`). This library's own interface is
+  unchanged: no program above it needs either yet, and os grows by its
+  consumers.
+- **An ok image over this release selects openkal-platform 0.20.0** or a later
+  group naming openkal 0.19; `checks/hosted` and the image checks take theirs
+  from 0.20.0.
+
 ## 0.2.4
 
 - **openkal 0.18.** The implementations of openkal 0.18 (openkal-linux 0.19.0,
