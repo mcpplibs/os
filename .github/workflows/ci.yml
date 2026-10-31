@@ -219,8 +219,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      # openkal 0.18.0, which this release is written against, is the one
-      # openkal-platform 0.19.0's version group names; the released mcpp's
+      # openkal 0.19.0, which this release is written against, is the one
+      # openkal-platform 0.20.0's version group names; the released mcpp's
       # openkal rows pin 0.18.0, whose group names openkal 0.17.1.
       MCPP_PLATFORM: openkal-platform@0.20.0
     defaults:
@@ -269,8 +269,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
-      # openkal 0.18.0, which this release is written against, is the one
-      # openkal-platform 0.19.0's version group names; the released mcpp's
+      # openkal 0.19.0, which this release is written against, is the one
+      # openkal-platform 0.20.0's version group names; the released mcpp's
       # openkal rows pin 0.18.0, whose group names openkal 0.17.1.
       MCPP_PLATFORM: openkal-platform@0.20.0
     strategy:
