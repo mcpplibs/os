@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.6
+
+- **openkal-macos 0.17.1**, whose `kal_task_current` reads the thread's
+  identifier from the record the system's library keeps instead of a system
+  call per answer. This library's interface is unchanged; an ok image over this
+  release selects openkal-platform 0.20.1, which `checks/hosted` and the image
+  checks take.
+
 ## 0.2.5
 
 - **openkal 0.19.** The implementations of openkal 0.19 (openkal-linux 0.20.0,
