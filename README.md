@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.6" }
+os = { namespace = "mcpplibs", version = "0.2.8" }
 ```
 
 ```cpp
@@ -55,6 +55,29 @@ The standard output's diversion and the ending for a closed reader act on the pr
 itself: the kernel's descriptors and dispositions, or on Windows the process's standard
 handles. `checks/hosted` runs the tests under openkal-musl and openkal-llvm-runtime on
 every system in CI.
+
+## A program's stream that goes nowhere
+
+`process::stdio::null` gives a started program the system's null device at that
+position --- `/dev/null` on Linux and macOS, `NUL` on Windows --- through the start
+itself (openkal 0.22, `KAL_SPAWN_NULL_IN`, `_OUT`, `_ERR`), so this program holds
+no pipe and no thread for it (0.2.8). An implementation before openkal 0.22 is
+given a file of the system's own where there is one, or a pipe this program
+closes (input) or drains (output), as before.
+
+## The directories a started program receives
+
+`spawn_options::grants` names the directories a started program receives, each
+under the name it knows it by, the first being the one it regards as the one it
+was started in; each may be read-only, stated unchanging (the implementation may
+keep what it read beneath it) and recorded (each name the program reaches,
+and whether it was there, is appended to a file) --- openkal 0.23's
+`kal_fs_dir_attenuate`, whose rights pass with the handle to every program the
+started one starts. `confine` asks the system to hold the program to its
+grants as well (Landlock on Linux, the sandbox on macOS), and `preference`
+states what it spends resources for (balanced, performance, economy). Each is
+refused with `errc::not_supported` where the system cannot give it, never
+dropped (0.2.8).
 
 ## Modules
 

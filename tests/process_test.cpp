@@ -118,6 +118,14 @@ int child(std::string_view errand) {
         os::interrupt::end_as_output_closed();
         return 5;   // where the system has no such ending
     }
+    if (errand == "create") {
+        // A file created in the directory OS_TEST_DIR names, through what this
+        // program was given.
+        const auto dir = os::env::get("OS_TEST_DIR").value_or("");
+        auto w = os::fs::write(std::filesystem::path(dir) / "created.txt", "x");
+        (void)os::stdio::write_output(w ? "created" : "refused");
+        return 0;
+    }
     if (errand == "sleep") {
         std::this_thread::sleep_for(std::chrono::seconds(30));
         return 0;
@@ -246,6 +254,38 @@ int main(int argc, char** argv) {
         o.env = pairs;
         auto r = os::process::run(o);
         check(r && r->out == "from-entries", "and reach the program");
+    }
+    {
+        // 0.2.8: the directories a started program receives (openkal 0.23),
+        // its own directories and one of the test's, the second read-only or
+        // not: what it may create there follows.
+        const auto dir = std::filesystem::temp_directory_path() / "mcpplibs-os-grant-probe";
+        std::filesystem::create_directories(dir);
+        std::filesystem::remove(dir / "created.txt");
+        auto granted = [&](bool read_only) {
+            auto o = copy("create");
+            o.env = { { "OS_TEST_DIR", os::fs::generic_utf8(dir) } };
+            o.cwd = dir;
+            std::vector<os::process::grant> gs;
+            gs.push_back({ os::fs::generic_utf8(dir), dir, read_only });
+            for (const auto& part : again) {
+                const auto parent = os::fs::absolute(std::filesystem::path(part)).parent_path();
+                if (std::ranges::none_of(gs, [&](const auto& g) { return os::fs::same(g.path, parent); }))
+                    gs.push_back({ os::fs::generic_utf8(parent), parent, true });
+            }
+            o.grants = gs;
+            return os::process::run(o);
+        };
+        auto ro = granted(true);
+        if (!ro && ro.error().code == os::errc::not_supported) {
+            std::printf("  (this system grants no directories, or cannot hold one read-only: %s)\n", ro.error().message().c_str());
+        } else {
+            check(ro && ro->status.success() && ro->out == "refused", "a program granted a directory read-only creates nothing in it");
+            check(!std::filesystem::exists(dir / "created.txt"), "and nothing is there");
+            auto rw = granted(false);
+            check(rw && rw->status.success() && rw->out == "created", "and granted it to write, creates");
+        }
+        std::filesystem::remove(dir / "created.txt");
     }
     {
         auto r = os::process::run(copy("relay"));

@@ -47,9 +47,12 @@ kal_u64 nanoseconds(std::chrono::milliseconds t) {
     return static_cast<kal_u64>(ns < 1 ? 1 : ns);
 }
 
-// Where a program's stream goes when it is to go nowhere. A file of the
-// system's own where there is one; otherwise a pipe whose far end this program
-// closes (input) or drains (output).
+// Where a program's stream goes when it is to go nowhere, for an
+// implementation that does not give the system's null device at a position
+// (before openkal 0.22): a file of the system's own where there is one;
+// otherwise a pipe whose far end this program closes (input) or drains
+// (output). From 0.22 the start is asked for the device itself
+// (`KAL_SPAWN_NULL_*`, process::spawn).
 struct null_stream {
     kal_stream child{};
     bool       channel = false;    // `child' is an end this program must release
@@ -193,6 +196,11 @@ result<process> process::spawn(const spawn_options& o) {
     auto s = std::make_unique<state>();
     std::vector<kal_stream> release;                 // the program's ends, released after the start
     std::vector<null_stream> nulls;
+    // THE SYSTEM'S NULL DEVICE AT A POSITION (openkal 0.22): asked of the start
+    // where the implementation states it, so nothing here holds a pipe or a
+    // thread for a program whose stream goes nowhere.
+    const bool device = (kal_process_props() & kal::process::null_streams.bits) != 0;
+    kal_uintptr null_at = 0;
     kal_stream child_in{}, child_out{}, child_err{};
     auto fail_streams = [&](const error& e) {
         for (auto st : release) kal_process_channel_close(st);
@@ -206,6 +214,8 @@ result<process> process::spawn(const spawn_options& o) {
         if (const int rc = kal_process_channel(&child_in, &s->input); rc != kal_ok)
             return fail_streams(from_kal(rc, "making the program's input"));
         s->input_open = true; release.push_back(child_in);
+    } else if (o.in == stdio::null && device) {
+        null_at |= kal::process::null_in_flag.bits;
     } else if (o.in == stdio::null) {
         auto n = open_null(true);
         if (!n) return fail_streams(n.error());
@@ -215,6 +225,8 @@ result<process> process::spawn(const spawn_options& o) {
         if (const int rc = kal_process_channel(&s->output, &child_out); rc != kal_ok)
             return fail_streams(from_kal(rc, "making the program's output"));
         s->output_open = true; release.push_back(child_out);
+    } else if (o.out == stdio::null && device) {
+        null_at |= kal::process::null_out_flag.bits;
     } else if (o.out == stdio::null) {
         auto n = open_null(false);
         if (!n) return fail_streams(n.error());
@@ -224,11 +236,14 @@ result<process> process::spawn(const spawn_options& o) {
     }
     if (o.err == stdio::output) {
         if (o.out == stdio::inherit) child_err = kal_stdout();
+        else if (null_at & kal::process::null_out_flag.bits) null_at |= kal::process::null_err_flag.bits;
         else child_err = child_out;
     } else if (o.err == stdio::pipe) {
         if (const int rc = kal_process_channel(&s->error, &child_err); rc != kal_ok)
             return fail_streams(from_kal(rc, "making the program's error output"));
         s->error_open = true; release.push_back(child_err);
+    } else if (o.err == stdio::null && device) {
+        null_at |= kal::process::null_err_flag.bits;
     } else if (o.err == stdio::null) {
         auto n = open_null(false);
         if (!n) return fail_streams(n.error());
@@ -255,9 +270,72 @@ result<process> process::spawn(const spawn_options& o) {
     if (o.one_string && (props & kal::process::one_string.bits) == 0)
         return fail_streams(error{ errc::not_supported,
             std::format("starting {}: a program here receives a vector, not one string", fs::generic_utf8(program)) });
-    kal_spawn how{ as_dir(where->directory), work, nullptr, nullptr, 0,
+    // THE DIRECTORIES THE PROGRAM RECEIVES (0.2.8, openkal 0.23), each opened
+    // and given the rights asked for, and released once the program started.
+    struct granted {
+        std::vector<kal_dir> dirs;
+        std::vector<kal_file> records;
+        std::vector<kal_preopen> preopens;
+        ~granted() {
+            for (auto d : dirs) kal_fs_close_dir(d);
+            for (auto f : records) kal_fs_close_file(f);
+        }
+    } g;
+    if (o.grants) {
+        if ((props & kal::process::grant_dir.bits) == 0)
+            return fail_streams(error{ errc::not_supported,
+                std::format("starting {}: this system grants a started program no directories", fs::generic_utf8(program)) });
+        g.preopens.reserve(o.grants->size());
+        for (const auto& gr : *o.grants) {
+            const auto at = fs::locate(fs::absolute(gr.path).lexically_normal());
+            if (!at) return fail_streams(error{ errc::not_found,
+                std::format("granting {}: beneath no directory this program was given", fs::generic_utf8(gr.path)) });
+            kal_dir d{};
+            if (const int rc = kal_fs_open_dir(as_dir(at->directory), at->relative.data(), at->relative.size(), &d); rc != kal_ok)
+                return fail_streams(from_kal(rc, std::format("granting {}", fs::generic_utf8(gr.path))));
+            g.dirs.push_back(d);
+            kal_dir_rights rights{};
+            rights.self_size = sizeof rights;
+            if (gr.read_only) rights.flags |= kal::fs::dir_read_only.bits;
+            if (gr.unchanging) rights.flags |= kal::fs::dir_unchanging.bits;
+            if (!gr.record.empty()) {
+                const auto r = fs::locate(fs::absolute(gr.record).lexically_normal());
+                if (!r) return fail_streams(error{ errc::not_found,
+                    std::format("recording {}: beneath no directory this program was given", fs::generic_utf8(gr.record)) });
+                kal_file rec{};
+                const auto how_open = kal::fs::open::write | kal::fs::open::create | kal::fs::open::append;
+                if (const int rc = kal_fs_open(as_dir(r->directory), r->relative.data(), r->relative.size(), how_open.bits, &rec); rc != kal_ok)
+                    return fail_streams(from_kal(rc, std::format("recording {}", fs::generic_utf8(gr.record))));
+                g.records.push_back(rec);
+                rights.flags |= kal::fs::dir_recorded.bits;
+                rights.record = rec;
+            }
+            if (rights.flags != 0) {
+                if ((kal_fs_props(d) & kal::fs::attenuate.bits) == 0)
+                    return fail_streams(error{ errc::not_supported,
+                        std::format("granting {}: this system cannot hold a directory to rights", fs::generic_utf8(gr.path)) });
+                kal_dir held{};
+                if (const int rc = kal_fs_dir_attenuate(d, &rights, &held); rc != kal_ok)
+                    return fail_streams(from_kal(rc, std::format("granting {}", fs::generic_utf8(gr.path))));
+                g.dirs.push_back(held);
+                d = held;
+            }
+            g.preopens.push_back(kal_preopen{ d, gr.name.data(), gr.name.size() });
+        }
+    }
+    if (o.confine && (props & kal::process::confine.bits) == 0)
+        return fail_streams(error{ errc::not_supported,
+            std::format("starting {}: this system cannot hold a program to its grants", fs::generic_utf8(program)) });
+    const kal_uintptr preference =
+          o.preference == resources::balanced    ? kal::process::balanced_flag.bits
+        : o.preference == resources::performance ? kal::process::performance_flag.bits
+        : o.preference == resources::economy     ? kal::process::economy_flag.bits : kal_uintptr{ 0 };
+    kal_spawn how{ as_dir(where->directory), work, nullptr,
+                   o.grants ? g.preopens.data() : nullptr, o.grants ? g.preopens.size() : 0,
                    (bind ? kal::process::bound_lifetime_flag.bits : kal_uintptr{ 0 })
-                   | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 }) };
+                   | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 })
+                   | (o.confine ? kal::process::confine_flag.bits : kal_uintptr{ 0 })
+                   | preference | null_at };
     kal_job job{};
     const bool unit = o.own_unit && (props & kal::process::job.bits) != 0;
     if (unit) how.job = &job;
