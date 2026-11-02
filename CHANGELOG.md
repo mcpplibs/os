@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.7
+
+- **openkal 0.21.** The implementations of openkal 0.21 (openkal-linux 0.22.0,
+  openkal-macos 0.19.0, openkal-windows 0.17.0, openkal-emscripten 0.10.0). This
+  library's interface is unchanged. An ok image over this release selects
+  openkal-platform 0.21.0, whose loader maps an image's instructions from its
+  file and whose C library's allocator is mimalloc; `checks/hosted` and the
+  image checks take theirs from it, built with mcpp 2026.11.2.1.
+
 ## 0.2.6
 
 - **openkal-macos 0.17.1**, whose `kal_task_current` reads the thread's
