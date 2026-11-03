@@ -227,9 +227,9 @@ jobs:
     timeout-minutes: 120
     env:
       # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
+      # openkal-platform 0.23.3's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.23.2
+      MCPP_PLATFORM: openkal-platform@0.23.3
     defaults:
       run:
         shell: bash
@@ -279,9 +279,9 @@ jobs:
     timeout-minutes: 45
     env:
       # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
+      # openkal-platform 0.23.3's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.23.2
+      MCPP_PLATFORM: openkal-platform@0.23.3
     strategy:
       fail-fast: false
       matrix:

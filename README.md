@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.8" }
+os = { namespace = "mcpplibs", version = "0.2.9" }
 ```
 
 ```cpp
@@ -169,3 +169,12 @@ target in CI and run under node (`checks/emscripten`).
 ## License
 
 Apache-2.0
+
+## Linux confinement in 0.2.9
+
+The Linux backend is openkal-linux 0.24.1. It requires Landlock ABI 3 before
+claiming confinement, which protects read-only grants against raw file
+truncation. Older ABIs refuse a confinement request before starting a program.
+The backend's ABI probe cache uses atomic accesses during concurrent first
+queries. Hosted and image CI select the matching openkal-platform 0.23.3 group.
+The library's own implementation is unchanged.
