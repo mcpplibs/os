@@ -35,7 +35,9 @@ on:
 
 env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
-  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.2.1' }}
+  # 2026.11.2.3: the std module compiled with the platform's words (openkal-platform 0.23.0's
+  # `-fcf-protection=full` refused every `import std` of an earlier mcpp's).
+  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.2.3' }}
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
