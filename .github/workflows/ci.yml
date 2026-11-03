@@ -35,9 +35,9 @@ on:
 
 env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
-  # 2026.11.2.3: the std module compiled with the platform's words (openkal-platform 0.23.0's
+  # 2026.11.3.1: the std module compiled with the platform's words (openkal-platform 0.23.0's
   # `-fcf-protection=full` refused every `import std` of an earlier mcpp's).
-  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.2.3' }}
+  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.3.1' }}
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
@@ -227,9 +227,9 @@ jobs:
     timeout-minutes: 120
     env:
       # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.1's version group names; mcpp 2026.11.2.3 and
+      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.23.1
+      MCPP_PLATFORM: openkal-platform@0.23.2
     defaults:
       run:
         shell: bash
@@ -279,9 +279,9 @@ jobs:
     timeout-minutes: 45
     env:
       # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.1's version group names; mcpp 2026.11.2.3 and
+      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.23.1
+      MCPP_PLATFORM: openkal-platform@0.23.2
     strategy:
       fail-fast: false
       matrix:
