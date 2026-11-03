@@ -15,8 +15,8 @@ name: CI
 #
 # The library is built with the released mcpp, 2026.11.2.1. The ok images
 # (MCPP_PLATFORM) and checks/hosted (its manifest) select openkal-platform
-# 0.21.0 and take their C library and C++ run-time from it (openkal 0.21's
-# implementations among them; openkal-musl 0.26.0 embeds its allocator, which
+# 0.23.0 and take their C library and C++ run-time from it (openkal 0.23's
+# implementations among them; openkal-musl 0.27.0 embeds its allocator, which
 # needs mcpp 2026.11 or later). The library
 # itself needs 2026.10.27.1 or later, the first that selects a platform
 # (SPEC-013). A dispatch may name a branch of mcpp instead (`mcpp_ref'), which
@@ -35,7 +35,9 @@ on:
 
 env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
-  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.2.1' }}
+  # 2026.11.3.1: the std module compiled with the platform's words (openkal-platform 0.23.0's
+  # `-fcf-protection=full` refused every `import std` of an earlier mcpp's).
+  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.3.1' }}
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
@@ -89,7 +91,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build from $MCPP_SOURCE_REF"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -185,7 +189,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build from $MCPP_SOURCE_REF"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -220,10 +226,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      # openkal 0.21.0, which this release is written against, is the one
-      # openkal-platform 0.21.0's version group names; mcpp 2026.11.2.2 and
+      # openkal 0.23.0, which this release is written against, is the one
+      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.21.0
+      MCPP_PLATFORM: openkal-platform@0.23.2
     defaults:
       run:
         shell: bash
@@ -243,7 +249,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f -name mcpp | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -270,10 +278,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
-      # openkal 0.21.0, which this release is written against, is the one
-      # openkal-platform 0.21.0's version group names; mcpp 2026.11.2.2 and
+      # openkal 0.23.0, which this release is written against, is the one
+      # openkal-platform 0.23.2's version group names; mcpp 2026.11.3.1 and
       # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.21.0
+      MCPP_PLATFORM: openkal-platform@0.23.2
     strategy:
       fail-fast: false
       matrix:
@@ -310,7 +318,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) -path '*/bin/*' | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             PATH="$(cd "$(dirname "$built")" && pwd):$PATH"
@@ -378,7 +388,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f -name mcpp | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"

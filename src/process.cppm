@@ -21,6 +21,29 @@ export namespace mcpplibs::os::process {
 // which is the order a person reads a compiler's diagnostics in.
 enum class stdio { inherit, pipe, null, error, output };
 
+// A DIRECTORY A STARTED PROGRAM RECEIVES (openkal 0.23): the name it knows it
+// by, the directory, and what it may do beneath it. A program that reaches
+// files only through what it was given is held to these by openkal; one
+// started with `confine' is held to them by the system as well.
+struct grant {
+    // The name, normally the directory's absolute path, by which the program
+    // resolves an absolute name beneath it.
+    std::string name;
+    std::filesystem::path path;
+    // Nothing beneath is created, written, removed or renamed.
+    bool read_only = false;
+    // The caller states that nothing beneath changes while the program runs,
+    // so the implementation may keep what it read of it.
+    bool unchanging = false;
+    // Each name the program reaches beneath, and whether it was there, is
+    // appended to this file (openkal's record: `r', `w', `s', `a', `l' and the
+    // name, then `e' when the program ends); empty for none.
+    std::filesystem::path record;
+};
+
+// What a started program spends its machine's resources for (openkal 0.23).
+enum class resources { unstated, balanced, performance, economy };
+
 struct spawn_options {
     // An absolute name, or a bare one looked for on PATH (`env::find_executable').
     std::filesystem::path program;
@@ -44,6 +67,16 @@ struct spawn_options {
     // the line as a command of its own grammar (0.2.0, openkal 0.17.1).
     // errc::not_supported where a program receives a vector.
     bool one_string = false;
+    // The directories the program receives, the first being the one it
+    // regards as the one it was started in; none given, those the
+    // implementation supplies by default. errc::not_supported where the
+    // implementation grants no directories, or a right asked for cannot be
+    // held (0.2.8, openkal 0.23).
+    std::optional<std::vector<grant>> grants;
+    // The program is held to its grants by the system, not by openkal alone;
+    // errc::not_supported where the system cannot hold it.
+    bool confine = false;
+    resources preference = resources::unstated;
 };
 
 // How a program ended: the status it returned, or, ended by its environment
