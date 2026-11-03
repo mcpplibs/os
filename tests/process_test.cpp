@@ -124,6 +124,10 @@ int child(std::string_view errand) {
         const auto dir = os::env::get("OS_TEST_DIR").value_or("");
         auto w = os::fs::write(std::filesystem::path(dir) / "created.txt", "x");
         (void)os::stdio::write_output(w ? "created" : "refused");
+        // What it was given, for the starter to show when the outcome is not the one it asked for.
+        std::string given;
+        for (const auto& name : os::fs::preopens()) given += "[" + name + "] ";
+        (void)os::stdio::write_error(given);
         return 0;
     }
     if (errand == "sleep") {
@@ -281,6 +285,7 @@ int main(int argc, char** argv) {
             std::printf("  (this system grants no directories, or cannot hold one read-only: %s)\n", ro.error().message().c_str());
         } else {
             check(ro && ro->status.success() && ro->out == "refused", "a program granted a directory read-only creates nothing in it");
+            if (ro && ro->out != "refused") std::printf("    it was given: %s\n", ro->err.c_str());
             check(!std::filesystem::exists(dir / "created.txt"), "and nothing is there");
             auto rw = granted(false);
             check(rw && rw->status.success() && rw->out == "created", "and granted it to write, creates");
