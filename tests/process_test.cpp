@@ -127,6 +127,9 @@ int child(std::string_view errand) {
         // What it was given, for the starter to show when the outcome is not the one it asked for.
         std::string given;
         for (const auto& name : os::fs::preopens()) given += "[" + name + "] ";
+        given += "KAL_PREOPENS=" + os::env::get("KAL_PREOPENS").value_or("(none)");
+        given += " KAL_GRANT_RIGHTS=" + os::env::get("KAL_GRANT_RIGHTS").value_or("(none)");
+        if (auto me = os::process::self()) given += " pid=" + std::to_string(me->id);
         (void)os::stdio::write_error(given);
         return 0;
     }
