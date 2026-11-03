@@ -91,7 +91,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build from $MCPP_SOURCE_REF"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -187,7 +189,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build from $MCPP_SOURCE_REF"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -245,7 +249,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f -name mcpp | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
@@ -312,7 +318,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f \( -name mcpp -o -name mcpp.exe \) -path '*/bin/*' | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             PATH="$(cd "$(dirname "$built")" && pwd):$PATH"
@@ -380,7 +388,9 @@ jobs:
             src="$RUNNER_TEMP/mcpp-src"
             git clone --quiet --depth 1 --branch "$MCPP_SOURCE_REF" https://github.com/mcpp-community/mcpp.git "$src"
             rm -f "$src/.xlings.json"
-            ( cd "$src" && mcpp build --release )
+            # mcpp's own build is not this job's target: MCPP_PLATFORM names the
+            # platform of the os package's images, and mcpp's graph is another.
+            ( cd "$src" && env -u MCPP_PLATFORM mcpp build --release )
             built=$(find "$src/target" -type f -name mcpp | head -1)
             [ -n "$built" ] || { echo "::error::mcpp did not build"; exit 1; }
             echo "$(cd "$(dirname "$built")" && pwd)" >> "$GITHUB_PATH"
