@@ -5,6 +5,9 @@ on:
 concurrency:
   group: unit-lifecycle-${{ github.ref }}
   cancel-in-progress: true
+env:
+  XLINGS_NON_INTERACTIVE: '1'
+
 jobs:
   native:
     name: declared unit and blocking ACK (${{ matrix.os }})
@@ -77,6 +80,18 @@ jobs:
           binary=$(find target -type f \( -name unit_test -o -name unit_test.exe \) | head -1)
           test -n "$binary"
           "$binary" | tee unit-cost.jsonl
+      - name: An observer cannot admit or terminate a program
+        run: |
+          set +e
+          (cd checks/observer-control && mcpp build) > observer-control.log 2>&1
+          result=$?
+          set -e
+          test "$result" -ne 0
+          python - <<'PYCONTROL'
+          from pathlib import Path
+          log=Path('observer-control.log').read_text()
+          assert 'unit_observer' in log and ('declared_unit' in log or 'owned_unit' in log) and 'terminate' in log, log
+          PYCONTROL
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -84,3 +99,4 @@ jobs:
           path: |
             unit-lifecycle.log
             unit-cost.jsonl
+            observer-control.log

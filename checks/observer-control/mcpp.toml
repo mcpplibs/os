@@ -1,0 +1,7 @@
+# A negative compilation check: an observer supplies no unit control authority.
+[package]
+name = "observer-control-misuse"
+version = "0.1.0"
+
+[dependencies]
+os = { path = "../.." }
