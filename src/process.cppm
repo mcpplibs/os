@@ -44,6 +44,13 @@ struct grant {
 // What a started program spends its machine's resources for (openkal 0.23).
 enum class resources { unstated, balanced, performance, economy };
 
+// A program identity, obtained from self/describe rather than inferred.
+struct program {
+    std::uint64_t id = 0;
+    std::uint64_t started_ns = 0;
+    auto operator<=>(const program&) const = default;
+};
+
 // An observation is deliberately three-valued. A lost native reference is
 // unknown, and cannot authorize output recovery or reuse of a compiler slot.
 enum class unit_state { unknown, occupied, empty };
@@ -79,8 +86,11 @@ public:
     const std::string& reference() const;
     // Seals admission, then asks whether every external member has ended.
     // Occupied/unknown can be retried. Future spawns into this unit fail.
-    // The caller remains alive and may finish its own bookkeeping.
-    result<unit_state> retire();
+    // The caller remains alive and may finish its own bookkeeping in the
+    // continuation's unit. Its full identity is checked; no stale group is used.
+    // Dead, reused or inaccessible continuations yield unknown. This conveys
+    // no admission or termination right over the continuation's unit.
+    result<unit_state> retire(const program& continuation);
     // Ends every member outright, including this program when it is a member.
     void terminate();
 private:
@@ -238,11 +248,7 @@ result<void> exec(spawn_options options);
 // --- programs this one did not start (openkal 0.17) ------------------------
 
 // A program, named so that a later one given the same identifier is another.
-struct program {
-    std::uint64_t id = 0;
-    std::uint64_t started_ns = 0;
-    auto operator<=>(const program&) const = default;
-};
+
 
 struct program_info {
     program       who;

@@ -151,11 +151,12 @@ const std::string& owned_unit::reference() const {
     static const std::string empty;
     return state_ ? state_->reference : empty;
 }
-result<unit_state> owned_unit::retire() {
+result<unit_state> owned_unit::retire(const program& continuation) {
     if (!state_) return std::unexpected(error{errc::invalid,"retiring an empty process unit"});
     std::lock_guard guard(state_->admission); state_->sealed = true;
     kal_u32 observed = kal::process::job_state::unknown;
-    const int rc = kal_process_job_retire(state_->job,state_->reference.data(),state_->reference.size(),&observed);
+    const kal_program_identity anchor{continuation.id,continuation.started_ns};
+    const int rc = kal_process_job_retire(state_->job,state_->reference.data(),state_->reference.size(),&anchor,&observed);
     if (rc != kal_ok) return std::unexpected(from_kal(rc,"retiring a process unit"));
     return unit_state_of(observed);
 }

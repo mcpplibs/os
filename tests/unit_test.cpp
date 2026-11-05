@@ -31,10 +31,11 @@ int main(int argc, char** argv) {
     if (argc > 2 && std::string_view(argv[1]) == "writer") {
         std::ofstream out(argv[2]); out << "declared-unit writer\n"; return out ? 0 : 40;
     }
-    if (argc > 5 && std::string_view(argv[1]) == "helper") {
+    if (argc > 7 && std::string_view(argv[1]) == "helper") {
         auto unit = process::owned_unit::create();
         if (!unit) return 30;
         const std::filesystem::path output(argv[4]);
+        const process::program continuation{std::stoull(argv[6]),std::stoull(argv[7])};
         if (std::string_view(argv[5]) != "none") {
             auto c = ipc::connection::connect(argv[2],argv[3]);
             if (!c || !c->write(unit->reference() + "\n")) return 31;
@@ -48,15 +49,18 @@ int main(int argc, char** argv) {
             const auto status = writer->wait();
             if (!status || !status->success()) return 33;
         }
+        auto wrong=continuation;++wrong.started_ns;
+        auto refused=unit->retire(wrong);
+        if(!refused||*refused!=process::unit_state::unknown)return 38;
         const auto limit = clock_type::now() + 2s;
         for (;;) {
-            auto retired = unit->retire();
+            auto retired = unit->retire(continuation);
             if (!retired) return 34;
             if (*retired == process::unit_state::empty) break;
             if (clock_type::now() >= limit) return 35;
             std::this_thread::sleep_for(1ms);
         }
-        if (auto again = unit->retire(); !again || *again != process::unit_state::empty) return 36;
+        if (auto again = unit->retire(continuation); !again || *again != process::unit_state::empty) return 36;
         auto forbidden = process::process::spawn({.program=self, .args={"writer",output.string()+".forbidden"},
             .declared_unit=&*unit});
         if (forbidden || forbidden.error().code != mcpplibs::os::errc::closed) return 37;
@@ -95,7 +99,7 @@ int main(int argc, char** argv) {
         int exit = -1;
         {
             auto helper = process::process::spawn({.program=self,
-                .args={"helper",root.string(),name,output.string(),std::string(mode)},
+                .args={"helper",root.string(),name,output.string(),std::string(mode),std::to_string(identity->id),std::to_string(identity->started_ns)},
                 .in=process::stdio::null, .out=process::stdio::null, .err=process::stdio::null});
             if (helper) { auto status = helper->wait(); if (status) exit=status->shell_code(); }
         }
