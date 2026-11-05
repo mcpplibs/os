@@ -23,3 +23,12 @@ The native consumers measure paired startup and listener start/stop samples,
 retain outliers, and test sealed admission after both unknown and successful
 retirement. Three native source builds are required; cross-compilation alone
 does not qualify native lifetime behavior or cost.
+
+## 2026-11-06 dependency-group preparation
+
+The final source group names OpenKal 0.24, Linux 0.25, macOS 0.22, Windows
+0.20 and Emscripten 0.13. OS 0.2.10 uses platform 0.24 for its hosted and
+image consumers. Its public manifest is advanced only after the lower source
+archives and index entries are available. Native source controls establish
+API behaviour; the final complete package CI and ordinary public resolution
+remain separate qualification gates.
