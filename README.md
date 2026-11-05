@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.10" }
+os = { namespace = "mcpplibs", version = "0.3.0" }
 ```
 
 ```cpp
@@ -36,7 +36,7 @@ platform modules.
 
 ## Declared process units
 
-Version 0.2.10 provides `process::owned_unit` and the observation-only
+Version 0.3.0 provides `process::owned_unit` and the observation-only
 `process::unit_observer`. Create an owned unit before starting its external
 members, retain `reference()` in the supervising invocation, and pass the unit
 through `spawn_options::declared_unit`. The existing `process::spawn` performs
