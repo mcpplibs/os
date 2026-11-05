@@ -49,7 +49,12 @@ jobs:
         run: |
           xlings update
           xlings install mcpp@2026.11.5.1 -y -g
-          mcpp toolchain default '${{ matrix.toolchain }}'
+          spec='${{ matrix.toolchain }}'
+          case "$spec" in
+            msvc@system) mcpp toolchain default msvc ;;
+            *) mcpp toolchain install "${spec%@*}" "${spec#*@}"
+               mcpp toolchain default "$spec" ;;
+          esac
       - name: Select the coherent source group under review
         env:
           IMPLEMENTATION: ${{ matrix.backend }}
