@@ -17,18 +17,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04, backend: openkal-linux, toolchain: gcc@16.1.0, revision: b429bac4368d1a3960efd6d9dd93c02f229fbeda }
-          - { os: macos-15, backend: openkal-macos, toolchain: llvm@23.1.3, revision: 5cad63b22b61df2af38d632ff1590f8cbb527130 }
-          - { os: windows-2025, backend: openkal-windows, toolchain: msvc@system, revision: 07994ed5d8f7741474b42aa83bcda0256fc71bcc }
+          - { os: ubuntu-24.04, backend: openkal-linux, toolchain: gcc@16.1.0, revision: 225c545f8353570c277ebe79d0bb47b882826bca }
+          - { os: macos-15, backend: openkal-macos, toolchain: llvm@23.1.3, revision: 3b9686e9260f4a14169602c865751eea2af5f9e0 }
+          - { os: windows-2025, backend: openkal-windows, toolchain: msvc@system, revision: 9e8f5ab1c1202bf6a46929e82bec77e2667db730 }
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      # Immutable published OpenKal0.24/backend release commits; no prototype refs.
       - uses: actions/checkout@v4
         with:
           repository: mcpplibs/openkal
-          ref: 1f0571064ccb537a0f80d72e4d6a75ee534ef5cb
+          ref: c17bc255b9672325a726f0afa69f15f20c766b73
           path: deps/openkal
       - uses: actions/checkout@v4
         with:
