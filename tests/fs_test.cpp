@@ -201,5 +201,25 @@ int main() {
     check(os::fs::windows_extended("C:/..") == "\\\\?\\C:\\", "and `..' never climbs above the drive");
     check(os::fs::windows_extended("rel/x") == "rel/x", "a relative name is not this rule's");
     if (os::host() != os::platform::windows) check(os::fs::extended("/a/b") == "/a/b", "elsewhere the name is itself");
+
+    // THE LONG SPELLING NAMES THE SAME FILE (0.3.1). Every operation that
+    // locates a name accepts the name `extended' produces.
+    if (os::host() == os::platform::windows) {
+        const auto base = stdfs::temp_directory_path() / std::format("mcpplibs-os-long-{}", run_tag());
+        std::error_code ec;
+        stdfs::create_directories(base, ec);
+        const auto plain = base / "a.txt";
+        const auto longer = os::fs::extended(plain);
+        check(os::fs::generic_utf8(longer).starts_with("//?/"), "the long spelling is produced");
+        const auto at = os::fs::locate(longer);
+        check(at && at->relative.find(':') == std::string::npos, "it is located beneath a drive, not beneath the shares");
+        check(os::fs::write(longer, "one").has_value(), "a file is written through it");
+        check(os::fs::read(longer).value_or("") == "one" && os::fs::read(plain).value_or("") == "one",
+              "and read through either spelling");
+        check(os::fs::stamp_of(longer).has_value() && os::fs::identity_of(longer).has_value(), "its stamp and identity are read");
+        const auto moved = os::fs::extended(base / "b.txt");
+        check(os::fs::rename(longer, moved, true).has_value() && stdfs::exists(base / "b.txt"), "and it is renamed");
+        stdfs::remove_all(base, ec);
+    }
     return g_failures;
 }

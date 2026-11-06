@@ -212,9 +212,26 @@ bool names_a_place(std::string_view name) {
     return name.find('/') != std::string_view::npos;
 }
 
+// A NAME IN THE LONG SPELLING IS THE NAME IT SPELLS (0.3.1). `extended' writes
+// `\\?\C:\...' and `\\?\UNC\server\share\...'. Compared as written, the leading
+// `//' matched the supplied directory of shares and the remainder kept `?/C:',
+// whose colon openkal refuses as a name: every operation upon such a name
+// failed with errc::invalid (mcpp-community/mcpp#889). The long spelling only
+// lifts Windows' length limit; the file it names is the plain one.
+namespace {
+std::string plain_spelling(std::string path) {
+    if (host() != platform::windows || !path.starts_with("//?/")) return path;
+    if (path.size() > 8 && (path.compare(4, 4, "UNC/") == 0 || path.compare(4, 4, "unc/") == 0))
+        return "//" + path.substr(8);
+    if (path.size() >= 6 && std::isalpha(static_cast<unsigned char>(path[4])) && path[5] == ':')
+        return path.substr(4);
+    return path;
+}
+}  // namespace
+
 std::optional<located> locate(const std::filesystem::path& name) {
     const auto whole = mcpplibs::os::fs::absolute(name);
-    const std::string path = slashed(generic_utf8(whole.lexically_normal()));
+    const std::string path = plain_spelling(slashed(generic_utf8(whole.lexically_normal())));
     const bool fold = conventions().case_insensitive_names;
     std::optional<located> best;
     std::size_t best_len = 0;
