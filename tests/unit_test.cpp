@@ -3,6 +3,7 @@
 import std;
 import mcpplibs.os.process;
 import mcpplibs.os.ipc;
+import mcpplibs.os.env;
 
 namespace process = mcpplibs::os::process;
 namespace ipc = mcpplibs::os::ipc;
@@ -27,7 +28,15 @@ static std::optional<std::string> line(ipc::connection& c, std::chrono::millisec
 }
 
 int main(int argc, char** argv) {
-    const auto self = std::filesystem::absolute(argv[0]);
+    const auto command = mcpplibs::os::env::self_command();
+    if (command.empty()) return 41;
+    auto self = [&](std::vector<std::string> args) {
+        process::spawn_options options;
+        options.program = std::filesystem::u8path(command.front());
+        options.args.assign(command.begin() + 1, command.end());
+        options.args.insert(options.args.end(), args.begin(), args.end());
+        return options;
+    };
     if (argc > 2 && std::string_view(argv[1]) == "writer") {
         std::ofstream out(argv[2]); out << "declared-unit writer\n"; return out ? 0 : 40;
     }
@@ -43,8 +52,11 @@ int main(int argc, char** argv) {
             if (!ack || *ack != "ACK") return 31;
         }
         {
-            auto writer = process::process::spawn({.program=self, .args={"writer",output.string()},
-                .out=process::stdio::null, .err=process::stdio::null, .declared_unit=&*unit});
+            auto options = self({"writer", output.string()});
+            options.out = process::stdio::null;
+            options.err = process::stdio::null;
+            options.declared_unit = &*unit;
+            auto writer = process::process::spawn(options);
             if (!writer) return 32;
             const auto status = writer->wait();
             if (!status || !status->success()) return 33;
@@ -61,8 +73,9 @@ int main(int argc, char** argv) {
             std::this_thread::sleep_for(1ms);
         }
         if (auto again = unit->retire(continuation); !again || *again != process::unit_state::empty) return 36;
-        auto forbidden = process::process::spawn({.program=self, .args={"writer",output.string()+".forbidden"},
-            .declared_unit=&*unit});
+        auto forbidden_options = self({"writer", output.string()+".forbidden"});
+        forbidden_options.declared_unit = &*unit;
+        auto forbidden = process::process::spawn(forbidden_options);
         if (forbidden || forbidden.error().code != mcpplibs::os::errc::closed) return 37;
         return 0;
     }
@@ -98,9 +111,12 @@ int main(int argc, char** argv) {
         }
         int exit = -1;
         {
-            auto helper = process::process::spawn({.program=self,
-                .args={"helper",root.string(),name,output.string(),std::string(mode),std::to_string(identity->id),std::to_string(identity->started_ns)},
-                .in=process::stdio::null, .out=process::stdio::null, .err=process::stdio::null});
+            auto options = self({"helper", root.string(), name, output.string(), std::string(mode),
+                std::to_string(identity->id), std::to_string(identity->started_ns)});
+            options.in = process::stdio::null;
+            options.out = process::stdio::null;
+            options.err = process::stdio::null;
+            auto helper = process::process::spawn(options);
             if (helper) { auto status = helper->wait(); if (status) exit=status->shell_code(); }
         }
         if (server.joinable()) server.join();
