@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.2.9" }
+os = { namespace = "mcpplibs", version = "0.3.0" }
 ```
 
 ```cpp
@@ -33,6 +33,29 @@ The kernel layer is openkal and only openkal. Native code in this package serves
 what is not a kernel question: the machine beneath the system (`machine`), the dynamic
 loader (`library`: the C library's on Linux and macOS, kernel32's on Windows), and the
 platform modules.
+
+## Declared process units
+
+Version 0.3.0 provides `process::owned_unit` and the observation-only
+`process::unit_observer`. Create an owned unit before starting its external
+members, retain `reference()` in the supervising invocation, and pass the unit
+through `spawn_options::declared_unit`. The existing `process::spawn` performs
+the start. The creating program is a member; `terminate()` can end it too.
+`own_unit` and `declared_unit` are mutually exclusive.
+
+An observer opens that opaque reference and reports `unit_state::occupied`,
+`empty` or `unknown`. Its type exposes neither admission nor termination.
+Closing it terminates nothing. Missing native identity, including loss of all
+native reference holders on a system that requires them, remains `unknown`.
+
+`owned_unit::retire(continuation)` seals admission before observing the end of
+external members. The continuation identifies the surviving supervising
+program outside the helper's unit, obtained from `self` or `describe` with
+both identifier and birth retained. A dead, reused or
+unreachable continuation does not authorize membership migration. The caller
+can finish its bookkeeping after successful retirement. Retirement does not
+grant control of the continuation's unit. Output recovery requires a positive
+`empty` observation; leader termination alone is insufficient.
 
 ## The program's C library
 
@@ -87,7 +110,7 @@ dropped (0.2.8).
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
-| `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
+| `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, declared units, observation and retirement, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |
 | `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`) |
 | `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` (with or without the interrupting keystroke), `foreground` |

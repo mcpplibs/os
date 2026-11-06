@@ -1,0 +1,103 @@
+name: declared unit lifecycle
+on:
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  group: unit-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  XLINGS_NON_INTERACTIVE: '1'
+
+jobs:
+  native:
+    name: declared unit and blocking ACK (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, backend: openkal-linux, toolchain: gcc@16.1.0, revision: 225c545f8353570c277ebe79d0bb47b882826bca }
+          - { os: macos-15, backend: openkal-macos, toolchain: llvm@23.1.3, revision: 3b9686e9260f4a14169602c865751eea2af5f9e0 }
+          - { os: windows-2025, backend: openkal-windows, toolchain: msvc@system, revision: 9e8f5ab1c1202bf6a46929e82bec77e2667db730 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      # Immutable published OpenKal0.24/backend release commits; no prototype refs.
+      - uses: actions/checkout@v4
+        with:
+          repository: mcpplibs/openkal
+          ref: c17bc255b9672325a726f0afa69f15f20c766b73
+          path: deps/openkal
+      - uses: actions/checkout@v4
+        with:
+          repository: mcpplibs/${{ matrix.backend }}
+          ref: ${{ matrix.revision }}
+          path: deps/backend
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Install the published build tool (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/openxlings/xlings/main/tools/other/quick_install.sh | bash -s v2026.10.26.1
+          echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
+      - name: Install the published build tool (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          irm https://d2learn.org/xlings-install.ps1.txt | iex
+          "$env:USERPROFILE\.xlings\subos\current\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Install the actual native compiler
+        run: |
+          xlings update
+          xlings install mcpp@2026.11.5.1 -y -g
+          spec='${{ matrix.toolchain }}'
+          case "$spec" in
+            msvc@system) mcpp toolchain default msvc ;;
+            *) mcpp toolchain install "${spec%@*}" "${spec#*@}"
+               mcpp toolchain default "$spec" ;;
+          esac
+      - name: Select the coherent source group under review
+        env:
+          IMPLEMENTATION: ${{ matrix.backend }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,re
+          root=Path('mcpp.toml')
+          text=root.read_text()
+          text=re.sub(r'^openkal = .*$', 'openkal = { path = "deps/openkal" }', text, flags=re.M)
+          text=re.sub(r'^'+re.escape(os.environ['IMPLEMENTATION'])+r' = .*$', os.environ['IMPLEMENTATION']+' = { path = "deps/backend" }', text, flags=re.M)
+          root.write_text(text)
+          backend=Path('deps/backend/mcpp.toml')
+          backend.write_text(re.sub(r'^openkal = .*$', 'openkal = { path = "../openkal" }', backend.read_text(), flags=re.M))
+          PY
+      - name: Compile and run the real lifecycle/ACK consumer
+        run: |
+          set -o pipefail
+          mcpp test unit_test --verbose 2>&1 | tee unit-lifecycle.log
+          binary=$(find target -type f \( -name unit_test -o -name unit_test.exe \) | head -1)
+          test -n "$binary"
+          "$binary" | tee unit-cost.jsonl
+      - name: An observer cannot admit or terminate a program
+        run: |
+          set +e
+          (cd checks/observer-control && mcpp build) > observer-control.log 2>&1
+          result=$?
+          set -e
+          test "$result" -ne 0
+          python - <<'PYCONTROL'
+          from pathlib import Path
+          log=Path('observer-control.log').read_text()
+          assert 'unit_observer' in log and ('declared_unit' in log or 'owned_unit' in log) and 'terminate' in log, log
+          PYCONTROL
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-lifecycle-${{ matrix.os }}
+          path: |
+            unit-lifecycle.log
+            unit-cost.jsonl
+            observer-control.log

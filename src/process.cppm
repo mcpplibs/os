@@ -44,6 +44,61 @@ struct grant {
 // What a started program spends its machine's resources for (openkal 0.23).
 enum class resources { unstated, balanced, performance, economy };
 
+// A program identity, obtained from self/describe rather than inferred.
+struct program {
+    std::uint64_t id = 0;
+    std::uint64_t started_ns = 0;
+    auto operator<=>(const program&) const = default;
+};
+
+// An observation is deliberately three-valued. A lost native reference is
+// unknown, and cannot authorize output recovery or reuse of a compiler slot.
+enum class unit_state { unknown, occupied, empty };
+class process;
+
+class unit_observer {
+public:
+    static result<unit_observer> open(std::string_view reference);
+    unit_observer() = default;
+    unit_observer(unit_observer&&) noexcept;
+    unit_observer& operator=(unit_observer&&) noexcept;
+    unit_observer(const unit_observer&) = delete;
+    unit_observer& operator=(const unit_observer&) = delete;
+    ~unit_observer();
+    result<unit_state> observe() const;
+private:
+    std::uintptr_t job_ = 0;
+    std::string reference_;
+};
+
+// The calling program declares its unit before starting work in it. Its
+// reference can be retained by another owner before that work is admitted.
+// Closing the object releases a reference and ends no member.
+class owned_unit {
+public:
+    static result<owned_unit> create();
+    owned_unit();
+    owned_unit(owned_unit&&) noexcept;
+    owned_unit& operator=(owned_unit&&) noexcept;
+    owned_unit(const owned_unit&) = delete;
+    owned_unit& operator=(const owned_unit&) = delete;
+    ~owned_unit();
+    const std::string& reference() const;
+    // Seals admission, then asks whether every external member has ended.
+    // Occupied/unknown can be retried. Future spawns into this unit fail.
+    // The caller remains alive and may finish its own bookkeeping in the
+    // continuation's unit. Its full identity is checked; no stale group is used.
+    // Dead, reused or inaccessible continuations yield unknown. This conveys
+    // no admission or termination right over the continuation's unit.
+    result<unit_state> retire(const program& continuation);
+    // Ends every member outright, including this program when it is a member.
+    void terminate();
+private:
+    friend class process;
+    struct state;
+    std::shared_ptr<state> state_;
+};
+
 struct spawn_options {
     // An absolute name, or a bare one looked for on PATH (`env::find_executable').
     std::filesystem::path program;
@@ -77,6 +132,10 @@ struct spawn_options {
     // errc::not_supported where the system cannot hold it.
     bool confine = false;
     resources preference = resources::unstated;
+    // Explicitly declared unit, mutually exclusive with own_unit. It must not
+    // have begun retirement. end_unit/kill then end this entire unit, including
+    // its owner if the owner is a member.
+    owned_unit* declared_unit = nullptr;
 };
 
 // How a program ended: the status it returned, or, ended by its environment
@@ -189,11 +248,7 @@ result<void> exec(spawn_options options);
 // --- programs this one did not start (openkal 0.17) ------------------------
 
 // A program, named so that a later one given the same identifier is another.
-struct program {
-    std::uint64_t id = 0;
-    std::uint64_t started_ns = 0;
-    auto operator<=>(const program&) const = default;
-};
+
 
 struct program_info {
     program       who;

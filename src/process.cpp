@@ -121,12 +121,77 @@ result<std::optional<std::string>> read_chunk_for(kal_stream s, bool open, std::
 
 }  // namespace
 
+namespace {
+unit_state unit_state_of(kal_u32 value) {
+    return value == kal::process::job_state::empty ? unit_state::empty
+         : value == kal::process::job_state::occupied ? unit_state::occupied : unit_state::unknown;
+}
+}
+struct owned_unit::state {
+    kal_job job{};
+    std::string reference;
+    bool sealed = false;
+    std::mutex admission;
+    ~state() { if (job.h) kal_process_job_close(job); }
+};
+owned_unit::owned_unit() = default;
+owned_unit::owned_unit(owned_unit&&) noexcept = default;
+owned_unit& owned_unit::operator=(owned_unit&&) noexcept = default;
+owned_unit::~owned_unit() = default;
+result<owned_unit> owned_unit::create() {
+    auto s = std::make_shared<state>();
+    std::string reference(512, '\0'); kal_uintptr used = 0;
+    const int rc = kal_process_job_create(&s->job,reference.data(),reference.size(),&used);
+    if (rc != kal_ok) return std::unexpected(from_kal(rc,"declaring a process unit"));
+    if (used == 0 || used > reference.size()) return std::unexpected(error{errc::io,"invalid process unit reference"});
+    reference.resize(used); s->reference = std::move(reference);
+    owned_unit result; result.state_ = std::move(s); return result;
+}
+const std::string& owned_unit::reference() const {
+    static const std::string empty;
+    return state_ ? state_->reference : empty;
+}
+result<unit_state> owned_unit::retire(const program& continuation) {
+    if (!state_) return std::unexpected(error{errc::invalid,"retiring an empty process unit"});
+    std::lock_guard guard(state_->admission); state_->sealed = true;
+    kal_u32 observed = kal::process::job_state::unknown;
+    const kal_program_identity anchor{continuation.id,continuation.started_ns};
+    const int rc = kal_process_job_retire(state_->job,state_->reference.data(),state_->reference.size(),&anchor,&observed);
+    if (rc != kal_ok) return std::unexpected(from_kal(rc,"retiring a process unit"));
+    return unit_state_of(observed);
+}
+void owned_unit::terminate() { if (state_) kal_process_job_terminate(state_->job); }
+result<unit_observer> unit_observer::open(std::string_view reference) {
+    kal_job job{};
+    const int rc = kal_process_job_open(reference.data(),reference.size(),&job);
+    if (rc != kal_ok) return std::unexpected(from_kal(rc,"opening a process unit reference"));
+    unit_observer result; result.job_ = job.h; result.reference_ = reference; return result;
+}
+unit_observer::unit_observer(unit_observer&& other) noexcept
+    : job_(std::exchange(other.job_,0)), reference_(std::move(other.reference_)) {}
+unit_observer& unit_observer::operator=(unit_observer&& other) noexcept {
+    if (this != &other) {
+        if (job_) kal_process_job_close(kal_job{job_});
+        job_ = std::exchange(other.job_,0); reference_ = std::move(other.reference_);
+    }
+    return *this;
+}
+unit_observer::~unit_observer() { if (job_) kal_process_job_close(kal_job{job_}); }
+result<unit_state> unit_observer::observe() const {
+    if (!job_) return std::unexpected(error{errc::invalid,"observing an empty process unit reference"});
+    kal_u32 observed = kal::process::job_state::unknown;
+    const int rc = kal_process_job_observe(kal_job{job_},reference_.data(),reference_.size(),&observed);
+    if (rc != kal_ok) return std::unexpected(from_kal(rc,"observing a process unit"));
+    return unit_state_of(observed);
+}
+
 struct process::state {
     kal_process handle{};
     kal_stream  input{}, output{}, error{};
     bool        input_open = false, output_open = false, error_open = false;
     kal_job     job{};
     bool        has_job = false;
+    std::shared_ptr<owned_unit::state> declared;
     std::optional<exit_status> ended;
     std::atomic<bool> bounded{ true };
     std::mutex  write_lock, wait_lock;
@@ -336,9 +401,19 @@ result<process> process::spawn(const spawn_options& o) {
                    | (o.one_string ? kal::process::one_string_flag.bits : kal_uintptr{ 0 })
                    | (o.confine ? kal::process::confine_flag.bits : kal_uintptr{ 0 })
                    | preference | null_at };
+    std::unique_lock<std::mutex> admission;
+    if (o.declared_unit) {
+        if (o.own_unit || !o.declared_unit->state_)
+            return fail_streams(error{errc::invalid,"a declared process unit conflicts with own_unit or is empty"});
+        s->declared = o.declared_unit->state_;
+        admission = std::unique_lock(s->declared->admission);
+        if (s->declared->sealed)
+            return fail_streams(error{errc::closed,"a retired process unit accepts no new program"});
+    }
     kal_job job{};
     const bool unit = o.own_unit && (props & kal::process::job.bits) != 0;
     if (unit) how.job = &job;
+    else if (s->declared) how.job = &s->declared->job;
     const kal_spawn_streams streams{ child_in, child_out, child_err };
 
     const int rc = kal_process_spawn(&how, where->relative.data(), where->relative.size(),
@@ -428,15 +503,17 @@ void process::kill() {
     if (!state_) return;
     std::lock_guard g(state_->wait_lock);
     if (state_->ended) return;
-    if (state_->has_job) kal_process_job_terminate(state_->job);
+    if (state_->declared) kal_process_job_terminate(state_->declared->job);
+    else if (state_->has_job) kal_process_job_terminate(state_->job);
     else kal_process_terminate(state_->handle);
 }
 
 bool process::reads_bounded() const noexcept { return !state_ || state_->bounded.load(); }
 
 void process::end_unit() {
-    if (!state_ || !state_->has_job) return;
-    kal_process_job_terminate(state_->job);
+    if (!state_) return;
+    if (state_->declared) kal_process_job_terminate(state_->declared->job);
+    else if (state_->has_job) kal_process_job_terminate(state_->job);
 }
 
 void process::detach() {
