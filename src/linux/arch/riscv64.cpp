@@ -28,7 +28,8 @@ constexpr long nr_write = 64,
                nr_uname = 160,
                nr_sysinfo = 179,
                nr_statfs = 43,
-               nr_renameat2 = 276;
+               nr_renameat2 = 276,
+               nr_geteuid = 175, nr_umask = 166;
 
 constexpr long f_dupfd_cloexec = 1030, sig_unblock = 1;
 
@@ -60,6 +61,10 @@ void raise_signal(int signal) {
     call(nr_rt_sigprocmask, sig_unblock, reinterpret_cast<long>(&set), 0, 8);
     call(nr_kill, call(nr_getpid), signal);
 }
+
+unsigned effective_user() { return static_cast<unsigned>(call(nr_geteuid)); }
+
+unsigned creation_mask(unsigned mask) { return static_cast<unsigned>(call(nr_umask, static_cast<long>(mask))); }
 
 }  // namespace mcpplibs::os::kernel
 

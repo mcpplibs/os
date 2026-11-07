@@ -27,6 +27,14 @@
   platform module, and a program shipped as an image that guarded them with
   `if constexpr (is_<platform>)` lost them without a word (mcpp-community/mcpp
   design 2026-11-08, S2 and S3).
+- **The user and the creation mask are the kernel's.** On Linux and macOS
+  `posix::effective_user()` and `posix::set_creation_mask()` make the kernel's
+  own calls (src/posix/kernel.h), as the descriptors and the signals already
+  did. In the hosted arrangement the C library is openkal-musl, which sits on
+  openkal: openkal names no user, so its `geteuid` answers the constant 1000,
+  and it has no `umask`. The answer was then 1000 for every user, and a mask
+  was set nowhere; it is now the process's under every C library. Measured on
+  the CI runners (user 1001) and under `unshare -r` (user 0).
 
 ## 0.3.1
 

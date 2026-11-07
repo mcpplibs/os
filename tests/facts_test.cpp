@@ -15,22 +15,30 @@ static_assert(!os::is_image || (os::can_run_on(os::platform::linux) && os::can_r
                                 && os::can_run_on(os::platform::windows)),
               "an image can run on every system a loader runs upon");
 
+// The effective user as the kernel names it, and as `id -u' does. A template,
+// so that it is instantiated, and posix's name linked, only where `on<P>'
+// calls it.
+template <os::platform P>
+void check_effective_user(std::integral_constant<os::platform, P>, const char* system) {
+    const auto uid = os::posix::effective_user();
+    auto id = os::process::run({.program = "/usr/bin/id", .args = {"-u"}, .err = os::process::stdio::null});
+    const std::string named = id ? std::string(id->out.substr(0, id->out.find_first_of("\r\n"))) : "(id did not run)";
+    std::printf("  note  effective_user() = %u, id -u = %s\n", uid, named.c_str());
+    check(std::to_string(uid) == named, std::format("{}: the effective user is the one `id -u' names", system).c_str());
+}
+
 int main() {
     const bool ci = os::env::get("GITHUB_ACTIONS").has_value();
     int asked = 0;
-    os::on<os::platform::linux>([&](auto) {
+    os::on<os::platform::linux>([&](auto p) {
         ++asked;
         check(!os::linux::translator().has_value() || !ci, "Linux: the runner is no translator");
-        const auto uid = os::posix::effective_user();
-        auto id = os::process::run({.program = "/usr/bin/id", .args = {"-u"}, .err = os::process::stdio::null});
-        const std::string named = id ? std::string(id->out.substr(0, id->out.find_first_of("\r\n"))) : "(id did not run)";
-        std::printf("  note  effective_user() = %u, id -u = %s\n", uid, named.c_str());
-        check(std::to_string(uid) == named, "Linux: the effective user is the one `id -u' names");
+        check_effective_user(p, "Linux");
     });
-    os::on<os::platform::macos>([&](auto) {
+    os::on<os::platform::macos>([&](auto p) {
         ++asked;
         check(!os::macos::translated() || !os::is_image, "macOS: an image is never translated");
-        check(os::posix::effective_user() != std::numeric_limits<std::uint32_t>::max(), "macOS: the effective user is known");
+        check_effective_user(p, "macOS");
     });
     os::on<os::platform::windows>([&](auto) {
         ++asked;

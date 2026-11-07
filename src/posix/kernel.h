@@ -1,4 +1,5 @@
-// The descriptors and the signals of the process, by the kernel's own calls:
+// The descriptors, the signals, the user and the creation mask of the
+// process, by the kernel's own calls:
 // what the units in src/posix/ do to the process rather than to the program's
 // C library.
 //
@@ -27,6 +28,12 @@ long close(int fd);
 void default_signal(int signal);
 // The signal unblocked in this thread and sent to this process.
 void raise_signal(int signal);
+// The process's effective user. A C library on openkal answers a constant
+// here, for openkal names no user; the kernel names the one it checks.
+unsigned effective_user();
+// The creation mask set to `mask'; the previous one is returned. The kernel
+// applies it to every file the process creates, whatever library asks.
+unsigned creation_mask(unsigned mask);
 
 inline constexpr int sigpipe = 13;   // the same number on Linux and macOS
 
