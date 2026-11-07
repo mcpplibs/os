@@ -23,8 +23,9 @@ int main() {
         check(!os::linux::translator().has_value() || !ci, "Linux: the runner is no translator");
         const auto uid = os::posix::effective_user();
         auto id = os::process::run({.program = "/usr/bin/id", .args = {"-u"}, .err = os::process::stdio::null});
-        check(id && std::to_string(uid) == std::string(id->out.substr(0, id->out.find_first_of("\r\n"))),
-              "Linux: the effective user is the one `id -u' names");
+        const std::string named = id ? std::string(id->out.substr(0, id->out.find_first_of("\r\n"))) : "(id did not run)";
+        std::printf("  note  effective_user() = %u, id -u = %s\n", uid, named.c_str());
+        check(std::to_string(uid) == named, "Linux: the effective user is the one `id -u' names");
     });
     os::on<os::platform::macos>([&](auto) {
         ++asked;

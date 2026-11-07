@@ -225,10 +225,11 @@ jobs:
     timeout-minutes: 120
     env:
       # openkal 0.24.0, which this release is written against, in the group of
-      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
-      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
-      # of 0.3.1 need it on Windows.
-      MCPP_PLATFORM: openkal-platform@0.24.2
+      # openkal-platform 0.24.3: its C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2, which the long-spelling
+      # tests of 0.3.1 need on Windows), and its tools are openkal-ld and
+      # openkal-run 0.5.2, which the graph resolves since they were published.
+      MCPP_PLATFORM: openkal-platform@0.24.3
     defaults:
       run:
         shell: bash
@@ -278,10 +279,11 @@ jobs:
     timeout-minutes: 45
     env:
       # openkal 0.24.0, which this release is written against, in the group of
-      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
-      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
-      # of 0.3.1 need it on Windows.
-      MCPP_PLATFORM: openkal-platform@0.24.2
+      # openkal-platform 0.24.3: its C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2, which the long-spelling
+      # tests of 0.3.1 need on Windows), and its tools are openkal-ld and
+      # openkal-run 0.5.2, which the graph resolves since they were published.
+      MCPP_PLATFORM: openkal-platform@0.24.3
     strategy:
       fail-fast: false
       matrix:
