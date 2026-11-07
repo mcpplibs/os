@@ -175,7 +175,7 @@ int main() {
         const auto b = os::fs::measure(dir);
         check(b.measured, "a writable directory's volume is measured");
         // The kind of a volume is the system's to name; an image is not told it.
-        if constexpr (!os::is_image)
+        if constexpr (!os::is_openkal)
             check(!b.type.empty() && b.type != "0x0", "and its kind is named by the system");
         (void)os::fs::write(dir / "x", "x");
         check(os::fs::place(dir / "x", dir / "y").has_value() && os::fs::read(dir / "y").value_or("") == "x"
@@ -189,7 +189,7 @@ int main() {
         check(os::fs::exchange(dir / "p", dir / "q").has_value()
                   && os::fs::read(dir / "p").value_or("") == "q" && os::fs::read(dir / "q").value_or("") == "p",
               "two entries trade places");
-        if (!os::is_image) {
+        if (!os::is_openkal) {
             check(os::fs::owner_of(dir) == os::fs::owner::this_user, "a directory this program made is its user's");
             check(os::fs::writable(dir), "and this user may write it");
         }

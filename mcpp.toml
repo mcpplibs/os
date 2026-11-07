@@ -1,7 +1,7 @@
 [package]
 namespace   = "mcpplibs"
 name        = "os"
-version     = "0.3.1"
+version     = "0.4.0"
 description = "mcpplibs.os: a C++ operating-system library over openkal --- processes, files, environment, terminals, directories and local IPC, with compile-time platform constants and a few platform modules."
 license     = "Apache-2.0"
 authors     = ["mcpplibs"]
@@ -108,10 +108,13 @@ sources = ["src/windows/posix/stdio.cpp"]
 sources = ["src/targets/emscripten.cppm", "src/emscripten/*.cpp", "src/posix/fs.cpp"]
 
 # AN OK IMAGE (`<arch>-openkal', openkal SPEC clause 12): no implementation
-# beneath --- the loader binds the image's `kal_*' --- and no platform module
-# defined. `host()' and the conventions are answered when the image is loaded.
+# beneath --- the loader binds the image's `kal_*' --- and the platform modules
+# defined where an image can answer them (R5 as revised in 0.4.0): Linux's
+# translator from /proc, Windows' token and developer volume and the POSIX
+# effective user from the system's own programs, macOS' translation as never.
+# `host()' and the conventions are answered when the image is loaded.
 [target.'cfg(os = "openkal")'.build]
-sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp"]
+sources = ["src/targets/openkal.cppm", "src/openkal/*.cpp", "src/linux/linux.cpp"]
 
 # The C library, the C++ run-time and the loader of an image are its
 # platform's: mcpp 2026.10.27.1 and later select openkal-platform for

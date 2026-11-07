@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.4.0
+
+- **`is_openkal`, named as its platform is.** A build for the openkal target
+  (`<arch>-openkal`, mcpp's `cfg(os = "openkal")`), whose artifact is an ok
+  image, is `is_openkal`, as a build for Linux is `is_linux`: each
+  `is_<platform>` names the target of the build, and `platform::openkal` is
+  this one's. `is_image`, its name since 0.1.0, read as though it named a
+  container's or a disk's image, and as though only it were over openkal, which
+  every build of this package is. It remains, deprecated, as the same constant.
+- **A platform question for a native build and an image alike.** `can_run_on(p)`
+  says whether this build can run on `p` (a native build on its own system, an
+  image on every system a loader runs upon), and `on<P>(f)` runs `f` when the
+  build runs on `P` now. `if constexpr (can_run_on(P))` keeps another system's
+  platform module out of a native build, as `if constexpr (is_<platform>)` does;
+  `host()` then decides in an image, where `is_<platform>` is false and a branch
+  under it never runs. `on<P>` takes the platform as an argument, so its body is
+  a template a build that cannot run on `P` never instantiates; a lambda without
+  the parameter is refused. `is_<platform>` keeps its meaning: a native build of
+  that platform (README, "A platform question").
+- **The platform modules in an image (R5 as revised).** A platform module is
+  defined where it can be answered: in a native build of its platform, and in an
+  image where the image can ask the system it runs upon. `linux::translator()`
+  reads /proc as on Linux; `windows::elevated()` reads the integrity level
+  `whoami /groups` lists, by SID; `windows::on_dev_drive()` asks `fsutil devdrv
+  query`; `posix::effective_user()` reads /proc on Linux and `/usr/bin/id -u` on
+  macOS; `macos::translated()` is `false`, since macOS runs images through an
+  aarch64 okrun only. The system's programs are started by absolute name with a
+  bound of ten seconds, and each answer is asked once. The code pages, long
+  names, the registry, the writable drives and the creation mask remain
+  undefined in an image: okrun carries an image's streams and names, and the
+  others belong to a native installation. Before 0.4.0 an image defined no
+  platform module, and a program shipped as an image that guarded them with
+  `if constexpr (is_<platform>)` lost them without a word (mcpp-community/mcpp
+  design 2026-11-08, S2 and S3).
+- **The user and the creation mask are the kernel's.** On Linux and macOS
+  `posix::effective_user()` and `posix::set_creation_mask()` make the kernel's
+  own calls (src/posix/kernel.h), as the descriptors and the signals already
+  did. In the hosted arrangement the C library is openkal-musl, which sits on
+  openkal: openkal names no user, so its `geteuid` answers the constant 1000,
+  and it has no `umask`. The answer was then 1000 for every user, and a mask
+  was set nowhere; it is now the process's under every C library. Measured on
+  the CI runners (user 1001) and under `unshare -r` (user 0).
+
 ## 0.3.1
 
 - **A name in the long spelling is the name it spells.** `fs::extended` writes

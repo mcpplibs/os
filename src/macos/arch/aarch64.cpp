@@ -25,7 +25,8 @@ long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
 }
 
 constexpr long nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
-               nr_sigprocmask = 48, nr_dup2 = 90, nr_fcntl = 92, nr_statfs64 = 345, nr_renameatx_np = 488;
+               nr_sigprocmask = 48, nr_dup2 = 90, nr_fcntl = 92, nr_statfs64 = 345, nr_renameatx_np = 488,
+               nr_geteuid = 25, nr_umask = 60;
 
 constexpr long f_dupfd_cloexec = 67, sig_unblock = 2;
 
@@ -55,6 +56,10 @@ void raise_signal(int signal) {
     call(nr_sigprocmask, sig_unblock, reinterpret_cast<long>(&set), 0);
     call(nr_kill, call(nr_getpid), signal, 1 /* POSIX */);
 }
+
+unsigned effective_user() { return static_cast<unsigned>(call(nr_geteuid)); }
+
+unsigned creation_mask(unsigned mask) { return static_cast<unsigned>(call(nr_umask, static_cast<long>(mask))); }
 
 }  // namespace mcpplibs::os::kernel
 

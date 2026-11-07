@@ -13,7 +13,9 @@ name: CI
 #              run under node (checks/emscripten); a program that starts one
 #              fails at LINK naming the openkal symbol (checks/absent)
 #
-# The library is built with the released mcpp, 2026.11.5.1. The ok images
+# The library is built with the released mcpp, 2026.11.7.2, which resolves
+# within the platform's version group (an earlier mcpp takes the newest member
+# of a range and then refuses it against the group). The ok images
 # (MCPP_PLATFORM) and checks/hosted select openkal-platform 0.24 and its
 # OpenKal 0.24 implementation, musl 0.28 and C++ runtime 0.19 group. The library
 # itself needs 2026.10.27.1 or later, the first that selects a platform
@@ -35,7 +37,7 @@ env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
   # 2026.11.3.1: the std module compiled with the platform's words (openkal-platform 0.23.0's
   # `-fcf-protection=full` refused every `import std` of an earlier mcpp's).
-  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.5.1' }}
+  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.7.2' }}
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
@@ -225,10 +227,12 @@ jobs:
     timeout-minutes: 120
     env:
       # openkal 0.24.0, which this release is written against, in the group of
-      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
-      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
-      # of 0.3.1 need it on Windows.
-      MCPP_PLATFORM: openkal-platform@0.24.2
+      # openkal-platform 0.24.4: its C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2, which the long-spelling
+      # tests of 0.3.1 need on Windows), and its tools are openkal-ld and
+      # openkal-run 0.5.3, whose okrun enters an image in its convention's
+      # floating-point state.
+      MCPP_PLATFORM: openkal-platform@0.24.4
     defaults:
       run:
         shell: bash
@@ -278,10 +282,12 @@ jobs:
     timeout-minutes: 45
     env:
       # openkal 0.24.0, which this release is written against, in the group of
-      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
-      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
-      # of 0.3.1 need it on Windows.
-      MCPP_PLATFORM: openkal-platform@0.24.2
+      # openkal-platform 0.24.4: its C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2, which the long-spelling
+      # tests of 0.3.1 need on Windows), and its tools are openkal-ld and
+      # openkal-run 0.5.3, whose okrun enters an image in its convention's
+      # floating-point state.
+      MCPP_PLATFORM: openkal-platform@0.24.4
     strategy:
       fail-fast: false
       matrix:
