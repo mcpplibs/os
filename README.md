@@ -6,7 +6,7 @@ with compile-time platform constants and a few platform modules.
 
 ```toml
 [dependencies]
-os = { namespace = "mcpplibs", version = "0.3.1" }
+mcpplibs.os = "0.4.0"
 ```
 
 ```cpp
@@ -106,7 +106,7 @@ dropped (0.2.8).
 
 | Module | Contents |
 |---|---|
-| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target |
+| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target; `can_run_on(p)` and `on<P>(f)`, a platform question that holds in a native build and an image alike |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
@@ -120,7 +120,7 @@ dropped (0.2.8).
 | `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed) |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
 | `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
-| `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined only on their own |
+| `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined on their own and, where an image can answer, in an image |
 
 ## Rules
 
@@ -133,9 +133,10 @@ dropped (0.2.8).
   - in an image (`<arch>-openkal`) it is an ordinary function, and using it in a constant
     expression is a compile error.
 - **R4.** A native handle does not appear in a portable type.
-- **R5.** A platform module is declared on every target and defined only on its own. A call
-  outside `if constexpr` for that platform is a link error. The same call in a discarded branch
-  is not an odr-use, so it links. CI asserts both.
+- **R5.** A platform module is declared on every target and defined where it can be answered: in
+  a native build of its own platform, and in an image where the image can ask the system it runs
+  upon (0.4.0). Elsewhere a call outside `if constexpr` is a link error. The same call in a
+  discarded branch is not an odr-use, so it links. CI asserts both.
 - **R6.** Where openkal is not in its shared form, this package's resources do not cross a
   shared-object boundary.
 - **R7.** A name reaches the system as UTF-8 and comes back as UTF-8 on every host, never
@@ -145,10 +146,50 @@ dropped (0.2.8).
   nothing else. The tests write, read and rename names in four scripts.
 
 Interface units import `std` and contain no system header and no macro. Implementation units
-on openkal import only `openkal.*`. The Windows and macOS units declare the functions they
+on openkal import only `openkal.*` and this package's own modules. The Windows and macOS units declare the functions they
 call themselves (`src/windows/win32.h`, `src/macos/darwin.h`). Linux's and macOS's kernel
 calls are in `src/linux/arch/` and `src/macos/arch/`, which the manifest selects by
 architecture.
+
+## A platform question, in a native build and an image
+
+Two questions are asked of the platform, and each has its form:
+
+| Question | Form | Native build | Image |
+|---|---|---|---|
+| Is this a native build for the platform? | `if constexpr (os::is_windows)` | a constant | `false` |
+| Does this build run on the platform now? | `if constexpr (os::can_run_on(P))` with `if (os::host() == P)`, or `os::on<P>([&](auto) { ... })` | a constant; another system's branch is discarded | known when the image is loaded |
+
+The first is right for code that belongs to a native build alone: a console's code page set
+for the C library's narrow functions has no meaning in an image, whose streams okrun carries.
+The second is right for code that is to take effect wherever the program runs, which is what a
+program shipped as an image needs:
+
+```cpp
+if constexpr (os::can_run_on(os::platform::windows))
+    if (os::host() == os::platform::windows)
+        onDevDrive = os::windows::on_dev_drive(cache);
+
+os::on<os::platform::linux>([&](auto) { sandbox = os::linux::translator().value_or(""); });
+```
+
+`on<P>` takes the platform as a parameter, so the body is a template and a build that cannot
+run on `P` never instantiates it; a lambda without the parameter is refused, because its body
+would name another system's module on every build. The platform modules in an image:
+
+| Function | In an image |
+|---|---|
+| `linux::translator()` | `/proc/self/status`, the tracer's `comm` and the environment, as on Linux |
+| `windows::elevated()` | the integrity level `whoami /groups` lists (SID `S-1-16-12288` or `S-1-16-16384`) |
+| `windows::on_dev_drive()` | `fsutil devdrv query <volume>`; not known when the tool answers in another language or refuses |
+| `posix::effective_user()` | `/proc/self/status` on Linux, `/usr/bin/id -u` on macOS; the largest number when neither answers |
+| `macos::translated()` | `false`: macOS runs images through an aarch64 okrun only |
+| `windows::code_page()`, `console_output_code_page()`, `long_paths_enabled()`, `machine_registry_path()`, `writable_fixed_drive()`, `posix::set_creation_mask()` | not defined: okrun carries an image's streams and names, and the others belong to a native installation |
+
+The system's programs are started by absolute name (`%SystemRoot%\System32`, `/usr/bin`), with a
+bound of ten seconds, and each answer is asked once per process. `host()` decides which system's
+question applies, which is that system's convention; whether a program can be started is
+openkal's capability and is answered by the start itself (openkal SPEC clause 30).
 
 ## As an ok image
 

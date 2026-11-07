@@ -32,6 +32,38 @@ inline constexpr bool is_image   = PLATFORM == platform::openkal;
 // streams are the host's.
 inline constexpr bool is_emscripten = PLATFORM == platform::emscripten;
 
+// WHERE THIS BUILD CAN RUN, AND WHERE IT RUNS (0.4.0). `is_<platform>' says
+// what the build is for: a native build of that system. A program that is
+// also built as an image asks two questions instead -- can this build run on
+// the platform (a constant: a native build runs on its own system, an image
+// on every system a loader runs upon), and does it run there now (`host()',
+// a constant on a native build and known when an image is loaded):
+//
+//   if constexpr (os::can_run_on(os::platform::windows))
+//       if (os::host() == os::platform::windows)
+//           on_drive = os::windows::on_dev_drive(dir);
+//
+// The first is what keeps another system's platform module out of a native
+// build (a discarded statement is no odr-use, R5); the second is what an image
+// decides by.
+constexpr bool can_run_on(platform p) noexcept {
+    if constexpr (is_image) return p == platform::linux || p == platform::macos || p == platform::windows;
+    else return PLATFORM == p;
+}
+
+// The two questions for one call: `f' runs when this build runs on `P' now.
+// `f' takes the platform as an argument (`[&](auto) { ... }'), which makes its
+// body a template: a build that cannot run on `P' never instantiates it, so a
+// platform module named inside is no odr-use there. A lambda without the
+// parameter does not satisfy the constraint, because its body would be an
+// odr-use of what it names on every build.
+template <platform P, class F>
+    requires std::invocable<F&, std::integral_constant<platform, P>>
+void on(F&& f) {
+    if constexpr (can_run_on(P))
+        if (host() == P) std::invoke(f, std::integral_constant<platform, P>{});
+}
+
 // The name of a platform, as mcpp's target vocabulary and openkal's
 // `kal_env_system' spell it.
 constexpr std::string_view name(platform p) noexcept {
