@@ -7,7 +7,9 @@ namespace os = mcpplibs::os;
 
 static_assert(os::host() == os::PLATFORM);
 static_assert(os::is_linux + os::is_macos + os::is_windows + os::is_emscripten == 1);
-static_assert(!os::is_image);
+static_assert(!os::is_openkal);
+// 0.1.0-0.3.x's name, kept as a deprecated alias of the same constant (0.4.0): it compiles, warning.
+static_assert(os::is_image == os::is_openkal);
 static_assert(os::exe_suffix == (os::is_windows ? ".exe" : ""));
 static_assert(os::path_list_separator == (os::is_windows ? ';' : ':'));
 static_assert(os::conventions_of(os::host()).exe_suffix == os::exe_suffix);

@@ -26,7 +26,13 @@ inline constexpr bool is_linux   = PLATFORM == platform::linux;
 inline constexpr bool is_macos   = PLATFORM == platform::macos;
 inline constexpr bool is_windows = PLATFORM == platform::windows;
 inline constexpr bool is_posix   = is_linux || is_macos;
-inline constexpr bool is_image   = PLATFORM == platform::openkal;
+// A build for the openkal target, `<arch>-openkal` (mcpp `cfg(os = "openkal")`): its artifact is an
+// ok image (openkal SPEC clause 12), which a loader runs on every system. It does not say that the
+// build is over openkal -- every build of this package is -- but which target it is built for, as
+// each `is_<platform>` does (0.4.0; `is_image` before).
+inline constexpr bool is_openkal = PLATFORM == platform::openkal;
+[[deprecated("use is_openkal: a build for the openkal target, whose artifact is an ok image")]]
+inline constexpr bool is_image   = is_openkal;
 // A wasm module over Emscripten's C library (0.2.2): no program is started and
 // no library loaded, the file system is the module's own (MEMFS), and the
 // streams are the host's.
@@ -47,7 +53,7 @@ inline constexpr bool is_emscripten = PLATFORM == platform::emscripten;
 // build (a discarded statement is no odr-use, R5); the second is what an image
 // decides by.
 constexpr bool can_run_on(platform p) noexcept {
-    if constexpr (is_image) return p == platform::linux || p == platform::macos || p == platform::windows;
+    if constexpr (is_openkal) return p == platform::linux || p == platform::macos || p == platform::windows;
     else return PLATFORM == p;
 }
 

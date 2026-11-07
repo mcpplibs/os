@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
         auto r = os::process::run(o, limits);
         check(r && r->status.success() && r->held_open, "a bounded run says an output was held open, and ends the unit");
     }
-    if (os::host() == os::platform::linux && !os::is_image) {
+    if (os::host() == os::platform::linux && !os::is_openkal) {
         // 0.2.1: the threads of a running program, each with its time.
         const auto me = os::process::self();
         const auto threads = me ? os::process::threads(me->id) : std::vector<os::process::thread_info>{};
@@ -364,7 +364,7 @@ int main(int argc, char** argv) {
         check(!r && r.error().code == os::errc::not_program, "a file that is no image is not a program to become");
         std::filesystem::remove(file);
     }
-    if (!os::is_image) {
+    if (!os::is_openkal) {
         auto o = copy("wait-input");
         o.in = os::process::stdio::pipe;
         o.out = os::process::stdio::pipe;
@@ -408,7 +408,7 @@ int main(int argc, char** argv) {
                   "a joined command line is refused where a program receives a vector");
         }
     }
-    if (!os::is_image) {
+    if (!os::is_openkal) {
         auto r = os::process::run(copy("end-closed"));
         if (os::host() == os::platform::windows)
             check(r && r->status.code == 5, "Windows has no ending for a closed reader, and the program goes on");
@@ -422,7 +422,7 @@ int main(int argc, char** argv) {
         check(me && os::process::alive(*me), "and is alive");
     }
     // The program the system starts: this one, or in an ok image its loader.
-    const auto started = os::is_image ? os::env::loader() : self;
+    const auto started = os::is_openkal ? os::env::loader() : self;
     if (started) {
         const auto whole = os::fs::absolute(*started);
         check(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value(),

@@ -106,7 +106,7 @@ dropped (0.2.8).
 
 | Module | Contents |
 |---|---|
-| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target; `can_run_on(p)` and `on<P>(f)`, a platform question that holds in a native build and an image alike |
+| `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_openkal` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target; `can_run_on(p)` and `on<P>(f)`, a platform question that holds in a native build and an image alike |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
 | `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within` |
@@ -195,7 +195,7 @@ openkal's capability and is answered by the start itself (openkal SPEC clause 30
 
 Built for `<arch>-openkal` (openkal SPEC clause 12), a program over this library
 is one image per architecture that `okrun` runs on Linux, macOS and Windows.
-`os::PLATFORM` is `platform::openkal` and `os::is_image` is true; `os::host()`
+`os::PLATFORM` is `platform::openkal` and `os::is_openkal` is true; `os::host()`
 is an ordinary function there, answered when the image is loaded, and
 `os::conventions()` follows it; `exe_suffix` and `path_list_separator` are not
 provided, so code that reads them is a compile error rather than a wrong answer

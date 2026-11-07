@@ -2,6 +2,13 @@
 
 ## 0.4.0
 
+- **`is_openkal`, named as its platform is.** A build for the openkal target
+  (`<arch>-openkal`, mcpp's `cfg(os = "openkal")`), whose artifact is an ok
+  image, is `is_openkal`, as a build for Linux is `is_linux`: each
+  `is_<platform>` names the target of the build, and `platform::openkal` is
+  this one's. `is_image`, its name since 0.1.0, read as though it named a
+  container's or a disk's image, and as though only it were over openkal, which
+  every build of this package is. It remains, deprecated, as the same constant.
 - **A platform question for a native build and an image alike.** `can_run_on(p)`
   says whether this build can run on `p` (a native build on its own system, an
   image on every system a loader runs upon), and `on<P>(f)` runs `f` when the

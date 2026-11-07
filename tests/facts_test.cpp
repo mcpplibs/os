@@ -8,10 +8,10 @@ import mcpplibs.os;
 
 namespace os = mcpplibs::os;
 
-static_assert(os::can_run_on(os::PLATFORM) || os::is_image, "a native build runs on its own system");
+static_assert(os::can_run_on(os::PLATFORM) || os::is_openkal, "a native build runs on its own system");
 static_assert(!os::can_run_on(os::platform::openkal), "an image is a target, never a system it runs upon");
 static_assert(!os::can_run_on(os::platform::emscripten) || os::is_emscripten, "no image runs under Emscripten");
-static_assert(!os::is_image || (os::can_run_on(os::platform::linux) && os::can_run_on(os::platform::macos)
+static_assert(!os::is_openkal || (os::can_run_on(os::platform::linux) && os::can_run_on(os::platform::macos)
                                 && os::can_run_on(os::platform::windows)),
               "an image can run on every system a loader runs upon");
 
@@ -37,7 +37,7 @@ int main() {
     });
     os::on<os::platform::macos>([&](auto p) {
         ++asked;
-        check(!os::macos::translated() || !os::is_image, "macOS: an image is never translated");
+        check(!os::macos::translated() || !os::is_openkal, "macOS: an image is never translated");
         check_effective_user(p, "macOS");
     });
     os::on<os::platform::windows>([&](auto) {
