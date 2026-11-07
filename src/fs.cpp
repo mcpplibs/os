@@ -230,8 +230,10 @@ std::string plain_spelling(std::string path) {
 }  // namespace
 
 std::optional<located> locate(const std::filesystem::path& name) {
-    const auto whole = mcpplibs::os::fs::absolute(name);
-    const std::string path = plain_spelling(slashed(generic_utf8(whole.lexically_normal())));
+    // The plain spelling first: a C++ library with POSIX's rules reads the
+    // leading `//' of `//?/C:/...' as `/' when it normalizes the name.
+    const auto whole = mcpplibs::os::fs::absolute(from_utf8(plain_spelling(slashed(generic_utf8(name)))));
+    const std::string path = slashed(generic_utf8(whole.lexically_normal()));
     const bool fold = conventions().case_insensitive_names;
     std::optional<located> best;
     std::size_t best_len = 0;
@@ -615,9 +617,12 @@ std::string windows_extended(std::string_view in) {
 
 std::filesystem::path extended(const std::filesystem::path& name) {
     if (host() != platform::windows || name.empty()) return name;
-    std::error_code ec;
-    const auto abs = std::filesystem::absolute(name, ec);
-    if (ec) return name;
+    // This library's own reading of a Windows name (0.3.1): `C:\...' is
+    // absolute however the C++ library beneath reads it. Over the hosted
+    // arrangement std::filesystem takes `\' as an ordinary character, so
+    // `std::filesystem::absolute' put the working directory before the drive
+    // (`Z:/cwd/C:\Users\...'), and the long spelling named no file.
+    const auto abs = mcpplibs::os::fs::absolute(name);
     const auto u8 = abs.generic_u8string();
     const auto spelled = windows_extended(std::string(reinterpret_cast<const char*>(u8.data()), u8.size()));
     return std::filesystem::path(std::u8string(reinterpret_cast<const char8_t*>(spelled.data()), spelled.size()));

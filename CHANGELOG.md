@@ -8,8 +8,14 @@
   and the remainder kept `?/C:`, whose colon openkal refuses, so `read`, `write`,
   `rename`, `stamp_of`, `identity_of` and every other located operation upon such a
   name failed with `errc::invalid` (mcpp-community/mcpp#889). The long spelling is
-  now read as the plain name it denotes. The Windows test writes, reads, stamps,
-  identifies and renames a file through both spellings.
+  now read as the plain name it denotes, before the name is normalized (a C++
+  library with POSIX's rules reads the leading `//` as `/`). `fs::extended` makes a
+  name absolute by this library's own reading of a Windows name: over the hosted
+  arrangement `std::filesystem::absolute` took `C:\Users\...` for a relative name
+  and put the working directory before it. The Windows test writes, reads,
+  stamps, identifies and renames a file through both spellings, natively and over
+  the hosted arrangement (openkal-platform 0.24.2, whose C++ runtime keeps the
+  volume of a normalized name, openkal-llvm-runtime#68).
 - **The kernel layer is a compatible range.** openkal `^0.24.0` and its
   implementations `^0.25.0` (Linux), `^0.22.0` (macOS), `^0.20.0` (Windows) and
   `^0.13.0` (Emscripten). A target that selects openkal-platform receives the
