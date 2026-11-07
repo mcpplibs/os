@@ -224,10 +224,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
-      # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.3's version group names; mcpp 2026.11.3.1 and
-      # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.24.0
+      # openkal 0.24.0, which this release is written against, in the group of
+      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
+      # of 0.3.1 need it on Windows.
+      MCPP_PLATFORM: openkal-platform@0.24.2
     defaults:
       run:
         shell: bash
@@ -276,10 +277,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
-      # openkal 0.23.0, which this release is written against, is the one
-      # openkal-platform 0.23.3's version group names; mcpp 2026.11.3.1 and
-      # later pin it for their openkal rows.
-      MCPP_PLATFORM: openkal-platform@0.24.0
+      # openkal 0.24.0, which this release is written against, in the group of
+      # openkal-platform 0.24.2, whose C++ run-time keeps the volume of a
+      # normalized name (openkal-llvm-runtime 0.19.2); the long-spelling tests
+      # of 0.3.1 need it on Windows.
+      MCPP_PLATFORM: openkal-platform@0.24.2
     strategy:
       fail-fast: false
       matrix:
