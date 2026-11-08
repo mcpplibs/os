@@ -35,6 +35,12 @@ struct okos_persistent_volume {
     okos_dword volume_flags, flag_mask, version, reserved;
 };
 struct okos_token_elevation { okos_dword elevated; };
+// PROCESS_MEMORY_COUNTERS.
+struct okos_memory_counters {
+    okos_dword cb, page_faults;
+    unsigned long long peak_working_set, working_set, quota_peak_paged, quota_paged,
+        quota_peak_nonpaged, quota_nonpaged, pagefile, peak_pagefile;
+};
 
 __declspec(dllimport) okos_handle __stdcall CreateFileW(const okos_wchar*, okos_dword, okos_dword, void*, okos_dword, okos_dword, okos_handle);
 __declspec(dllimport) okos_bool __stdcall DeviceIoControl(okos_handle, okos_dword, void*, okos_dword, void*, okos_dword, okos_dword*, void*);
@@ -127,11 +133,6 @@ inline okos_bool GetProcessTimes(okos_handle a0, unsigned long long* a1, unsigne
                                                       unsigned long long*, unsigned long long*)>("GetProcessTimes");
     return f(a0, a1, a2, a3, a4);
 }
-struct okos_memory_counters {
-    okos_dword cb, page_faults;
-    unsigned long long peak_working_set, working_set, quota_peak_paged, quota_paged,
-        quota_peak_nonpaged, quota_nonpaged, pagefile, peak_pagefile;
-};
 inline okos_bool K32GetProcessMemoryInfo(okos_handle a0, okos_memory_counters* a1, okos_dword a2) {
     static const auto f = find<okos_bool (__stdcall*)(okos_handle, okos_memory_counters*, okos_dword)>(
         "K32GetProcessMemoryInfo");

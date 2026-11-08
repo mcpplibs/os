@@ -258,8 +258,9 @@ struct program_info {
 
 // WHAT A PROGRAM HAS USED (0.4.1): processor time, the largest resident set and
 // the bytes moved by its reads and writes. `of::self' is this program so far;
-// `of::children' the programs it started and has waited for, together, as the
-// kernel accounts them (Linux and macOS). A runner that starts one program and
+// `of::children' the programs it started, waited for and whose handles it has
+// closed (which reaps them), together, as the kernel accounts them (Linux and
+// macOS). A runner that starts one program and
 // asks for its children has that program's use. A field the system does not
 // tell is absent; errc::not_supported where nothing is told (an image, the Web,
 // a Windows program's children).
