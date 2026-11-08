@@ -17,7 +17,8 @@ long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
     return r;
 }
 
-constexpr long nr_openat = 257,
+constexpr long nr_getrusage = 98,
+               nr_openat = 257,
                nr_write = 1,
                nr_close = 3,
                nr_fcntl = 72,
@@ -50,6 +51,12 @@ long write(int fd, const void* bytes, unsigned long count) {
 }
 
 long close(int fd) { return call(nr_close, fd); }
+
+long resource_usage(int who, long (&out)[18]) {
+    return call(nr_getrusage, who, reinterpret_cast<long>(out));
+}
+
+unsigned long maxrss_unit() { return 1024; }   // kilobytes
 
 long open_write(const char* path) {
     // openat(AT_FDCWD, path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600)

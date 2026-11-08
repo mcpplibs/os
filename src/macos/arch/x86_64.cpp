@@ -21,7 +21,7 @@ long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
     return failed ? -r : r;
 }
 
-constexpr long nr_open = 5, nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
+constexpr long nr_getrusage = 117, nr_open = 5, nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
                nr_sigprocmask = 48, nr_dup2 = 90, nr_fcntl = 92, nr_statfs64 = 345, nr_renameatx_np = 488,
                nr_geteuid = 25, nr_umask = 60;
 
@@ -40,6 +40,12 @@ long write(int fd, const void* bytes, unsigned long count) {
 }
 
 long close(int fd) { return call(nr_close, fd); }
+
+long resource_usage(int who, long (&out)[18]) {
+    return call(nr_getrusage, who, reinterpret_cast<long>(out));
+}
+
+unsigned long maxrss_unit() { return 1; }   // bytes
 
 long open_write(const char* path) {
     // open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600)

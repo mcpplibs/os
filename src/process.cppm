@@ -256,6 +256,21 @@ struct program_info {
     bool          ended = false;
 };
 
+// WHAT A PROGRAM HAS USED (0.4.1): processor time, the largest resident set and
+// the bytes moved by its reads and writes. `of::self' is this program so far;
+// `of::children' the programs it started and has waited for, together, as the
+// kernel accounts them (Linux and macOS). A runner that starts one program and
+// asks for its children has that program's use. A field the system does not
+// tell is absent; errc::not_supported where nothing is told (an image, the Web,
+// a Windows program's children).
+enum class of { self, children };
+struct usage {
+    std::chrono::nanoseconds user{0}, system{0};
+    std::optional<std::uint64_t> peak_memory;     // bytes
+    std::optional<std::uint64_t> read_bytes, written_bytes;
+};
+result<usage> resources(of who = of::self);
+
 // This program.
 result<program> self();
 // What is known of the program with this identifier now; errc::not_found
@@ -283,4 +298,6 @@ result<void> replace_image(const std::filesystem::path& program,
                            const std::vector<std::string>& argv,
                            const std::vector<std::string>& environment,
                            const std::filesystem::path& cwd);
+// What `resources' reports, asked of the system (src/<os>/exec.cpp).
+result<usage> resources(of who);
 }  // namespace mcpplibs::os::process::sys

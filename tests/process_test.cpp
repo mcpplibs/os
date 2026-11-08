@@ -132,6 +132,15 @@ int child(std::string_view errand) {
         (void)os::stdio::write_output("[" + kept + "]");
         return 0;
     }
+    if (errand == "use") {
+        // 64 MiB touched and some processor time, for the parent's account of
+        // its children.
+        std::vector<char> block(64u << 20);
+        for (std::size_t i = 0; i < block.size(); i += 4096) block[i] = static_cast<char>(i);
+        volatile std::uint64_t x = 0;
+        for (std::uint64_t i = 0; i < 50'000'000; ++i) x = x + i * static_cast<unsigned char>(block[i % block.size()]);
+        return x == 1 ? 9 : 0;
+    }
     if (errand == "end-closed") {
         os::interrupt::end_as_output_closed();
         return 5;   // where the system has no such ending
@@ -413,6 +422,20 @@ int main(int argc, char** argv) {
         if (!kept && !refused && c)
             std::printf("  (the copy wrote '%s' and '%s')\n", c->out.c_str(), c->err.c_str());
         check(kept || refused, "a standard stream kept while it is captured, with what a started program wrote, then put back");
+        // What a program used: its own, and its waited-for children's together.
+        auto mine = os::process::resources(os::process::of::self);
+        check(mine ? mine->peak_memory.value_or(0) > 0 : os::is_openkal || os::is_emscripten,
+              "this program's largest resident set is known");
+        auto u = os::process::run(copy("use"));
+        auto theirs = os::process::resources(os::process::of::children);
+        const bool counted = theirs && theirs->peak_memory.value_or(0) >= (60u << 20)
+                          && theirs->user > std::chrono::nanoseconds(0);
+        const bool untold = !theirs && (os::host() == os::platform::windows || os::is_openkal || os::is_emscripten);
+        if (!counted && !untold && theirs)
+            std::printf("  (children: peak %llu, user %lld ns)\n",
+                        static_cast<unsigned long long>(theirs->peak_memory.value_or(0)),
+                        static_cast<long long>(theirs->user.count()));
+        check(u && (counted || untold), "a waited-for child's processor time and memory are accounted to its parent");
     }
     {
         // The command interpreter given a command with quotation marks, joined

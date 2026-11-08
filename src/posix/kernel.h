@@ -27,6 +27,11 @@ long close(int fd);
 // A new descriptor for writing the file `path' names, created (mode 0600) or
 // emptied, closed on exec.
 long open_write(const char* path);
+// The kernel's `struct rusage' of this process (`who' 0) or of its waited-for
+// children (`who' -1): two timevals and fourteen longs, as on every 64-bit
+// Linux and macOS. `ru_maxrss' is in units of `maxrss_unit()' bytes.
+long resource_usage(int who, long (&out)[18]);
+unsigned long maxrss_unit();
 // The signal at its default disposition.
 void default_signal(int signal);
 // The signal unblocked in this thread and sent to this process.
