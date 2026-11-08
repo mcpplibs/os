@@ -14,6 +14,28 @@ import mcpplibs.os.platform;
 
 namespace mcpplibs::os::process::sys {
 
+result<usage> resources(of who) {
+    long r[18] = {};
+    if (kernel::resource_usage(who == of::self ? 0 : -1, r) < 0)
+        return std::unexpected(error{ errc::io, "asking the kernel what was used" });
+    usage u;
+    u.user = std::chrono::seconds(r[0]) + std::chrono::microseconds(r[1]);
+    u.system = std::chrono::seconds(r[2]) + std::chrono::microseconds(r[3]);
+    u.peak_memory = static_cast<std::uint64_t>(r[4]) * kernel::maxrss_unit();
+    // The bytes moved by reads and writes, where the kernel counts them for
+    // this process: /proc/self/io on Linux. The children's are not counted.
+    if (who == of::self)
+        if (std::ifstream io("/proc/self/io"); io) {
+            std::string key;
+            std::uint64_t value = 0;
+            while (io >> key >> value) {
+                if (key == "rchar:") u.read_bytes = value;
+                else if (key == "wchar:") u.written_bytes = value;
+            }
+        }
+    return u;
+}
+
 result<void> replace_image(const std::filesystem::path& program,
                            const std::vector<std::string>& argv,
                            const std::vector<std::string>& environment,

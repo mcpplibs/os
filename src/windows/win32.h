@@ -35,6 +35,12 @@ struct okos_persistent_volume {
     okos_dword volume_flags, flag_mask, version, reserved;
 };
 struct okos_token_elevation { okos_dword elevated; };
+// PROCESS_MEMORY_COUNTERS.
+struct okos_memory_counters {
+    okos_dword cb, page_faults;
+    unsigned long long peak_working_set, working_set, quota_peak_paged, quota_paged,
+        quota_peak_nonpaged, quota_nonpaged, pagefile, peak_pagefile;
+};
 
 __declspec(dllimport) okos_handle __stdcall CreateFileW(const okos_wchar*, okos_dword, okos_dword, void*, okos_dword, okos_dword, okos_handle);
 __declspec(dllimport) okos_bool __stdcall DeviceIoControl(okos_handle, okos_dword, void*, okos_dword, void*, okos_dword, okos_dword*, void*);
@@ -118,6 +124,23 @@ inline okos_dword GetFileAttributesW(const okos_wchar* a0) {
 inline unsigned long long GetTickCount64() {
     static const auto f = find<unsigned long long (__stdcall*)()>("GetTickCount64");
     return f();
+}
+// The process's times (FILETIME: two dwords each), its memory counters
+// (PROCESS_MEMORY_COUNTERS) and its I/O counters (IO_COUNTERS: six 64-bit counts).
+inline okos_bool GetProcessTimes(okos_handle a0, unsigned long long* a1, unsigned long long* a2,
+                                 unsigned long long* a3, unsigned long long* a4) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, unsigned long long*, unsigned long long*,
+                                                      unsigned long long*, unsigned long long*)>("GetProcessTimes");
+    return f(a0, a1, a2, a3, a4);
+}
+inline okos_bool K32GetProcessMemoryInfo(okos_handle a0, okos_memory_counters* a1, okos_dword a2) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, okos_memory_counters*, okos_dword)>(
+        "K32GetProcessMemoryInfo");
+    return f(a0, a1, a2);
+}
+inline okos_bool GetProcessIoCounters(okos_handle a0, unsigned long long (*a1)[6]) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, unsigned long long (*)[6])>("GetProcessIoCounters");
+    return f(a0, a1);
 }
 inline okos_bool SetStdHandle(okos_dword a0, okos_handle a1) {
     static const auto f = find<okos_bool (__stdcall*)(okos_dword, okos_handle)>("SetStdHandle");

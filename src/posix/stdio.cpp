@@ -24,6 +24,24 @@ void restore_output(int saved) {
     k::close(saved);
 }
 
+int divert_to_file(int descriptor, const std::filesystem::path& file) {
+    const long target = k::open_write(file.c_str());
+    if (target < 0) return -1;
+    const long saved = k::dup_above(descriptor, 3);
+    if (saved < 0) {
+        k::close(static_cast<int>(target));
+        return -1;
+    }
+    k::dup_onto(static_cast<int>(target), descriptor);
+    k::close(static_cast<int>(target));
+    return static_cast<int>(saved);
+}
+
+void restore_descriptor(int descriptor, int saved) {
+    k::dup_onto(saved, descriptor);
+    k::close(saved);
+}
+
 bool write_descriptor(int descriptor, std::string_view bytes) {
     std::size_t done = 0;
     while (done < bytes.size()) {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.1
+
+- **A standard stream kept (`stdio::capture`).** `capture::begin(stream::error)`
+  (or `stream::output`) makes the stream a file until `text()` or destruction puts
+  it back, and `text()` gives what was written meanwhile: through openkal, through
+  the C library and the C++ streams, and by the programs started meanwhile. A
+  test reads what a program prints with it. Each system rearranges its own
+  descriptor (the kernel's on Linux and macOS, the C runtime's and the standard
+  handle on Windows, the C library's under Emscripten); an image answers
+  `not_supported`, as it does for `output_to_error`.
+- **What a program used (`process::resources`).** `resources(of::self)` gives
+  this program's user and system processor time, its largest resident set and
+  the bytes its reads and writes moved; `resources(of::children)` the same of
+  the programs it started, waited for and whose handles it closed (which reaps
+  them), together, as the kernel accounts them
+  (Linux and macOS, by `getrusage`). A field the system does not tell is absent;
+  Windows tells a program's own use and not its children's; an image and the Web
+  answer `not_supported`. A test runner measures a program by starting it from a
+  process of its own and asking for that process's children.
+
 ## 0.4.0
 
 - **`is_openkal`, named as its platform is.** A build for the openkal target

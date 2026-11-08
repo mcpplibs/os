@@ -690,6 +690,8 @@ result<program> self() {
     return program{ info.id, info.started_ns };
 }
 
+result<usage> resources(of who) { return sys::resources(who); }
+
 result<program_info> describe(std::uint64_t id) {
     kal_process p{};
     if (const int rc = kal_process_open_id(id, &p); rc != kal_ok)
