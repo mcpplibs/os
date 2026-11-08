@@ -17,7 +17,8 @@ long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
     return r;
 }
 
-constexpr long nr_write = 1,
+constexpr long nr_openat = 257,
+               nr_write = 1,
                nr_close = 3,
                nr_fcntl = 72,
                nr_dup3 = 292,
@@ -49,6 +50,11 @@ long write(int fd, const void* bytes, unsigned long count) {
 }
 
 long close(int fd) { return call(nr_close, fd); }
+
+long open_write(const char* path) {
+    // openat(AT_FDCWD, path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600)
+    return call(nr_openat, -100, reinterpret_cast<long>(path), 01 | 0100 | 01000 | 02000000, 0600);
+}
 
 void default_signal(int signal) {
     // The kernel's `struct sigaction', zero: SIG_DFL, no flags, nothing masked.

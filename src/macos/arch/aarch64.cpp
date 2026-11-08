@@ -24,7 +24,7 @@ long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
     return failed ? -x0 : x0;
 }
 
-constexpr long nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
+constexpr long nr_open = 5, nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
                nr_sigprocmask = 48, nr_dup2 = 90, nr_fcntl = 92, nr_statfs64 = 345, nr_renameatx_np = 488,
                nr_geteuid = 25, nr_umask = 60;
 
@@ -43,6 +43,11 @@ long write(int fd, const void* bytes, unsigned long count) {
 }
 
 long close(int fd) { return call(nr_close, fd); }
+
+long open_write(const char* path) {
+    // open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600)
+    return call(nr_open, reinterpret_cast<long>(path), 0x1 | 0x200 | 0x400 | 0x1000000, 0600);
+}
 
 void default_signal(int signal) {
     // The kernel's `struct __sigaction' (handler, trampoline, mask, flags),

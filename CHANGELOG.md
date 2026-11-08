@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.1
+
+- **A standard stream kept (`stdio::capture`).** `capture::begin(stream::error)`
+  (or `stream::output`) makes the stream a file until `text()` or destruction puts
+  it back, and `text()` gives what was written meanwhile: through openkal, through
+  the C library and the C++ streams, and by the programs started meanwhile. A
+  test reads what a program prints with it. Each system rearranges its own
+  descriptor (the kernel's on Linux and macOS, the C runtime's and the standard
+  handle on Windows, the C library's under Emscripten); an image answers
+  `not_supported`, as it does for `output_to_error`.
+
 ## 0.4.0
 
 - **`is_openkal`, named as its platform is.** A build for the openkal target

@@ -27,6 +27,24 @@ void restore_output(int saved) {
     ::close(saved);
 }
 
+int divert_to_file(int descriptor, const std::filesystem::path& file) {
+    const int target = ::open(file.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0600);
+    if (target < 0) return -1;
+    const int saved = ::fcntl(descriptor, F_DUPFD_CLOEXEC, 3);
+    if (saved < 0 || ::dup2(target, descriptor) < 0) {
+        if (saved >= 0) ::close(saved);
+        ::close(target);
+        return -1;
+    }
+    ::close(target);
+    return saved;
+}
+
+void restore_descriptor(int descriptor, int saved) {
+    ::dup2(saved, descriptor);
+    ::close(saved);
+}
+
 bool write_descriptor(int descriptor, std::string_view bytes) {
     std::size_t done = 0;
     while (done < bytes.size()) {

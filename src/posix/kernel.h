@@ -24,6 +24,9 @@ long dup_above(int fd, int lowest);
 long dup_onto(int from, int to);
 long write(int fd, const void* bytes, unsigned long count);
 long close(int fd);
+// A new descriptor for writing the file `path' names, created (mode 0600) or
+// emptied, closed on exec.
+long open_write(const char* path);
 // The signal at its default disposition.
 void default_signal(int signal);
 // The signal unblocked in this thread and sent to this process.

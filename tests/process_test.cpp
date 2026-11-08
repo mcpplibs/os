@@ -114,6 +114,24 @@ int child(std::string_view errand) {
         (void)d->write_original("document");
         return 0;
     }
+    if (errand == "capture") {
+        // Both streams kept, written through openkal, the C library and a started program.
+        auto e = os::stdio::capture::begin(os::stdio::stream::error);
+        if (!e) {
+            (void)os::stdio::write_output("unsupported");
+            return 0;
+        }
+        (void)os::stdio::write_error("kal|");
+        std::fputs("libc|", stderr);
+        auto o = copy_of_self("say");
+        o.out = os::process::stdio::error;
+        o.err = os::process::stdio::inherit;
+        if (auto p = os::process::process::spawn(o)) (void)p->wait();
+        const auto kept = e->text();
+        (void)os::stdio::write_error("after");
+        (void)os::stdio::write_output("[" + kept + "]");
+        return 0;
+    }
     if (errand == "end-closed") {
         os::interrupt::end_as_output_closed();
         return 5;   // where the system has no such ending
@@ -389,6 +407,12 @@ int main(int argc, char** argv) {
         auto d = os::process::run(copy("divert"));
         check(d && d->out == "document" && d->err == "narration",
               "output sent to the error stream for a while, and the document to the output as it was");
+        auto c = os::process::run(copy("capture"));
+        const bool kept = c && c->out == "[kal|libc|said]" && c->err == "after";
+        const bool refused = c && c->out == "unsupported" && os::is_openkal;
+        if (!kept && !refused && c)
+            std::printf("  (the copy wrote '%s' and '%s')\n", c->out.c_str(), c->err.c_str());
+        check(kept || refused, "a standard stream kept while it is captured, with what a started program wrote, then put back");
     }
     {
         // The command interpreter given a command with quotation marks, joined

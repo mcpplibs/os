@@ -91,6 +91,53 @@ output_to_error::~output_to_error() {
     sys::restore_output(saved_);
 }
 
+result<capture> capture::begin(stream which) {
+    std::fflush(nullptr);
+    (void)flush_output();
+    capture c;
+    c.descriptor_ = which == stream::output ? 1 : 2;
+    c.file_ = std::filesystem::temp_directory_path()
+        / std::format("mcpplibs-os-capture-{}-{:x}", c.descriptor_, std::random_device{}());
+    c.saved_ = sys::divert_to_file(c.descriptor_, c.file_);
+    if (c.saved_ < 0) {
+        std::error_code ec;
+        std::filesystem::remove(c.file_, ec);
+        return std::unexpected(error{ errc::not_supported, "keeping what a standard stream is written" });
+    }
+    return c;
+}
+
+capture::capture(capture&& o) noexcept
+    : descriptor_(std::exchange(o.descriptor_, -1)), saved_(std::exchange(o.saved_, -1)), file_(std::move(o.file_)) {}
+capture& capture::operator=(capture&& o) noexcept {
+    if (this != &o) {
+        end();
+        descriptor_ = std::exchange(o.descriptor_, -1);
+        saved_ = std::exchange(o.saved_, -1);
+        file_ = std::move(o.file_);
+    }
+    return *this;
+}
+capture::~capture() { end(); }
+
+void capture::end() {
+    if (saved_ < 0) return;
+    std::fflush(nullptr);
+    (void)flush_output();
+    sys::restore_descriptor(descriptor_, std::exchange(saved_, -1));
+}
+
+std::string capture::text() {
+    if (file_.empty()) return {};
+    end();
+    std::string kept;
+    if (std::ifstream in(file_, std::ios::binary); in) kept.assign(std::istreambuf_iterator<char>(in), {});
+    std::error_code ec;
+    std::filesystem::remove(file_, ec);
+    file_.clear();
+    return kept;
+}
+
 result<void> output_to_error::write_original(std::string_view bytes) {
     if (saved_ < 0) return write_output(bytes);
     if (!sys::write_descriptor(saved_, bytes)) return std::unexpected(error{ errc::io, "writing standard output" });

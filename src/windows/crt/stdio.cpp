@@ -13,6 +13,7 @@ int __cdecl _dup2(int, int);
 int __cdecl _close(int);
 long long __cdecl _get_osfhandle(int);
 int __cdecl _write(int, const void*, unsigned);
+int __cdecl _wopen(const wchar_t*, int, ...);
 }
 
 module mcpplibs.os.stdio;
@@ -33,6 +34,27 @@ int divert_output() {
 
 void restore_output(int saved) {
     _dup2(saved, 1);
+    _close(saved);
+}
+
+int divert_to_file(int descriptor, const std::filesystem::path& file) {
+    // _O_WRONLY | _O_CREAT | _O_TRUNC | _O_BINARY | _O_NOINHERIT, _S_IREAD | _S_IWRITE
+    const int target = _wopen(file.c_str(), 0x1 | 0x100 | 0x200 | 0x8000 | 0x80, 0x100 | 0x80);
+    if (target < 0) return -1;
+    const int saved = _dup(descriptor);
+    if (saved < 0) {
+        _close(target);
+        return -1;
+    }
+    if (const long long h = _get_osfhandle(saved); h != -1)
+        SetHandleInformation(reinterpret_cast<okos_handle>(h), 0x1 /* HANDLE_FLAG_INHERIT */, 0);
+    _dup2(target, descriptor);   // also the process's standard handle
+    _close(target);
+    return saved;
+}
+
+void restore_descriptor(int descriptor, int saved) {
+    _dup2(saved, descriptor);
     _close(saved);
 }
 

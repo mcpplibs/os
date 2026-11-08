@@ -48,6 +48,32 @@ private:
     int saved_ = -1;
 };
 
+// WHAT THIS PROGRAM WRITES TO ONE OF ITS STANDARD STREAMS, KEPT (0.4.1): from
+// `begin' the stream is a file, so what the program writes there -- through
+// openkal, its C library or the C++ streams -- and what the programs it starts
+// meanwhile write is kept; `text' (or destruction) puts the stream back and
+// gives what was kept. A test reads what a program prints with it.
+// errc::not_supported where the streams cannot be rearranged (an image).
+enum class stream { output, error };
+
+class capture {
+public:
+    static result<capture> begin(stream which);
+    capture() = default;
+    capture(capture&&) noexcept;
+    capture& operator=(capture&&) noexcept;
+    capture(const capture&) = delete;
+    capture& operator=(const capture&) = delete;
+    ~capture();
+    // The stream put back, and what was written to it; empty after the first call.
+    std::string text();
+private:
+    void end();
+    int descriptor_ = -1;
+    int saved_ = -1;
+    std::filesystem::path file_;
+};
+
 }  // namespace mcpplibs::os::stdio
 
 // Each system's own (src/<os>/stdio.cpp): the output descriptor saved and
@@ -56,4 +82,8 @@ namespace mcpplibs::os::stdio::sys {
 int divert_output();
 void restore_output(int saved);
 bool write_descriptor(int descriptor, std::string_view bytes);
+// `descriptor' (1 or 2) saved (-1 when not possible) and made one for writing
+// `file', created or emptied; put back.
+int divert_to_file(int descriptor, const std::filesystem::path& file);
+void restore_descriptor(int descriptor, int saved);
 }  // namespace mcpplibs::os::stdio::sys
