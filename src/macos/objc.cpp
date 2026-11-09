@@ -14,7 +14,7 @@ namespace {
 
 // The runtime's functions, each found once; all null where nothing loads.
 struct runtime_functions {
-    library::handle objc, system;
+    library::handle objc, system, foundation;
     void* (*get_class)(const char*) = nullptr;
     void* (*register_selector)(const char*) = nullptr;
     void* message = nullptr;
@@ -42,8 +42,15 @@ struct runtime_functions {
             missing = error{errc::not_found, "the Objective-C runtime: libobjc or libSystem did not load", 0};
             return;
         }
+        // Foundation's classes are the runtime's base (NSString, NSArray, NSProcessInfo): loaded with it.
+        auto base = library::open("/System/Library/Frameworks/Foundation.framework/Foundation");
+        if (!base) {
+            missing = error{errc::not_found, "the Objective-C runtime: Foundation did not load", 0};
+            return;
+        }
         objc = std::move(*opened);
         system = std::move(*with_blocks);
+        foundation = std::move(*base);
         get_class = objc.function<void*(const char*)>("objc_getClass");
         register_selector = objc.function<void*(const char*)>("sel_registerName");
         message = objc.symbol("objc_msgSend");

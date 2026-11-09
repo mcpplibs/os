@@ -54,8 +54,8 @@ private:
     void* raw_ = nullptr;
 };
 
-// Whether the runtime is here: not_supported where this program cannot load a
-// library (a static program).
+// Whether the runtime is here, with Foundation (NSString, NSArray, ...):
+// not_supported where this program cannot load a library (a static program).
 result<void> available();
 // A framework of the system, by name ("UserNotifications"): its classes exist after.
 result<void> load_framework(std::string_view name);
