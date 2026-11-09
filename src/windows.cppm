@@ -125,10 +125,7 @@ public:
     object() noexcept = default;
     object(const object& other) noexcept;
     object(object&& other) noexcept : raw_(std::exchange(other.raw_, nullptr)) {}
-    object& operator=(object other) noexcept {
-        std::swap(raw_, other.raw_);
-        return *this;
-    }
+    object& operator=(object other) noexcept;  // out of line: it releases, defined on Windows only (R5)
     ~object();
 
     // The reference a call gave through its out parameter becomes this one.

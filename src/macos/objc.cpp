@@ -105,6 +105,11 @@ id::id(const id& other) noexcept : raw_(other.raw_) {
     if (raw_ && runtime().retain) runtime().retain(raw_);
 }
 
+id& id::operator=(id other) noexcept {
+    std::swap(raw_, other.raw_);
+    return *this;
+}
+
 id::~id() {
     if (raw_ && runtime().release) runtime().release(raw_);
 }
@@ -170,6 +175,8 @@ std::string utf8(void* string) {
     const char* text = send<const char*>(string, "UTF8String");
     return text ? std::string(text, length) : std::string();
 }
+
+std::string utf8(const id& string) { return utf8(string.raw()); }
 
 result<void*> define_class(std::string_view name, std::string_view superclass, std::span<const method> methods,
                            std::span<const std::string_view> protocols) {

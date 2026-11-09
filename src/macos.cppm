@@ -36,10 +36,7 @@ public:
     id() noexcept = default;
     id(const id& other) noexcept;
     id(id&& other) noexcept : raw_(std::exchange(other.raw_, nullptr)) {}
-    id& operator=(id other) noexcept {
-        std::swap(raw_, other.raw_);
-        return *this;
-    }
+    id& operator=(id other) noexcept;  // out of line: it releases, defined on macOS only (R5)
     ~id();
 
     // A reference the caller owns (what alloc, new, copy and init return) becomes this one.
@@ -95,7 +92,7 @@ private:
 // An NSString from UTF-8, and the UTF-8 of one (R7).
 [[nodiscard]] id string(std::string_view utf8);
 [[nodiscard]] std::string utf8(void* string);
-[[nodiscard]] inline std::string utf8(const id& string) { return utf8(string.raw()); }
+[[nodiscard]] std::string utf8(const id& string);
 
 // A class made here (a delegate): NSObject's or another's subclass with these
 // methods. A method is its selector, a function `R(void* self, void* selector,

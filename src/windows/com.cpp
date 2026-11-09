@@ -134,6 +134,11 @@ object::object(const object& other) noexcept : raw_(other.raw_) {
     if (raw_) add_ref(raw_);
 }
 
+object& object::operator=(object other) noexcept {
+    std::swap(raw_, other.raw_);
+    return *this;
+}
+
 object::~object() {
     if (raw_) release(raw_);
 }
