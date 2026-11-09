@@ -18,3 +18,7 @@ platform = "openkal-platform@0.24.4"
 # The tests are the package's own, each reached by an include from
 # tests/<name>.cpp here (a test program is a file of the package that runs it).
 # CI checks that every test of the package has its counterpart.
+
+# The tests are mtest's (tests/*.cpp of the package, each reached by an include).
+[dev-dependencies]
+mcpplibs.mtest = "0.5.2"

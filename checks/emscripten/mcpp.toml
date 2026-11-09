@@ -11,3 +11,7 @@ version = "0.1.0"
 
 [dependencies]
 os = { path = "../.." }
+
+# The tests are mtest's (tests/*.cpp of the package, each reached by an include).
+[dev-dependencies]
+mcpplibs.mtest = "0.5.2"

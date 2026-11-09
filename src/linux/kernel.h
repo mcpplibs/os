@@ -42,4 +42,16 @@ long sysinfo(sysinfo_t* out);
 long statfs_type(const char* path, unsigned long long* type);
 long renameat2(int from_dir, const char* from, int to_dir, const char* to, unsigned flags);
 
+// inotify (0.4.2, `fs::watcher'): an instance that does not block a read and is
+// closed on exec, the watch of a node and its removal, its records read, and a
+// wait for it to be readable of at most `milliseconds' (negative: no bound).
+inline constexpr unsigned in_modify = 0x2, in_attrib = 0x4, in_close_write = 0x8, in_moved_from = 0x40,
+                          in_moved_to = 0x80, in_create = 0x100, in_delete = 0x200, in_delete_self = 0x400,
+                          in_move_self = 0x800, in_q_overflow = 0x4000, in_ignored = 0x8000, in_onlydir = 0x1000000;
+long inotify_open();
+long inotify_watch(int fd, const char* path, unsigned mask);
+long inotify_unwatch(int fd, int watch);
+long read(int fd, void* bytes, unsigned long count);
+long wait_readable(int fd, long milliseconds);
+
 }  // namespace mcpplibs::os::linux_kernel

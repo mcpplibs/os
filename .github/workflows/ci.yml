@@ -13,9 +13,11 @@ name: CI
 #              run under node (checks/emscripten); a program that starts one
 #              fails at LINK naming the openkal symbol (checks/absent)
 #
-# The library is built with the released mcpp, 2026.11.7.2, which resolves
-# within the platform's version group (an earlier mcpp takes the newest member
-# of a range and then refuses it against the group). The ok images
+# The library is built with the released mcpp, 2026.11.9.1: its tests are
+# mtest's, and mtest uses mcpplibs.os, so the package being built has to stand
+# for itself in its tests' graph, which mcpp does from 2026.11.9.1; it also
+# resolves within the platform's version group (an earlier mcpp takes the newest
+# member of a range and then refuses it against the group). The ok images
 # (MCPP_PLATFORM) and checks/hosted select openkal-platform 0.24 and its
 # OpenKal 0.24 implementation, musl 0.28 and C++ runtime 0.19 group. The library
 # itself needs 2026.10.27.1 or later, the first that selects a platform
@@ -37,7 +39,7 @@ env:
   MCPP_SOURCE_REF: ${{ github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF || '' }}
   # 2026.11.3.1: the std module compiled with the platform's words (openkal-platform 0.23.0's
   # `-fcf-protection=full` refused every `import std` of an earlier mcpp's).
-  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.7.2' }}
+  MCPP_INSTALL: ${{ (github.event.inputs.mcpp_ref || vars.MCPP_SOURCE_REF) && 'mcpp' || 'mcpp@2026.11.9.1' }}
   XLINGS_VERSION: v2026.10.26.1
   XLINGS_NON_INTERACTIVE: '1'
 
@@ -113,7 +115,7 @@ jobs:
         run: |
           profile='${{ matrix.profile }}'
           mcpp test --profile "$profile" 2>&1 | tee tests.log
-          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test; do
+          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test watch_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
           done
 
@@ -211,7 +213,7 @@ jobs:
         run: |
           profile='${{ matrix.profile }}'
           mcpp test --profile "$profile" ${{ matrix.target }} 2>&1 | tee tests.log
-          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test library_test; do
+          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test library_test watch_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
           done
 
@@ -263,7 +265,7 @@ jobs:
         run: |
           set -euo pipefail
           mcpp test --target x86_64-openkal 2>&1 | tee tests.log
-          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test; do
+          for name in platform_test fs_test process_test ipc_test unit_test dirs_terminal_test linux_test watch_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not pass as an image"; exit 1; }
           done
           mcpp test --target aarch64-openkal --no-run
@@ -413,7 +415,7 @@ jobs:
         run: |
           set -euo pipefail
           mcpp test --target wasm32-emscripten --profile '${{ matrix.profile }}' 2>&1 | tee tests.log
-          for name in platform_test fs_test dirs_terminal_test linux_test library_test; do
+          for name in platform_test fs_test dirs_terminal_test linux_test library_test watch_test; do
             grep -q "^$name \.\.\. ok" tests.log || { echo "::error::$name did not run or did not pass"; exit 1; }
           done
       - name: The compile-time constants of Emscripten (R3)

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.2
+
+- **Which names changed (`fs::watcher`).** A watcher holds names --- files and
+  directories, which need not exist yet --- and `changed(wait)` answers which
+  of them changed since it last answered, each once and as it was added: a
+  file's content, kind or node (a file replaced by a rename over it, as editors
+  save), a name made or removed, a directory's entries. The system's notice says
+  when and where to look --- inotify on Linux and kqueue on macOS by the
+  kernel's calls, `ReadDirectoryChangesW` on Windows --- and each name's stamp
+  and identity say what changed, so every system answers alike and a notice of
+  another name tells nothing; a name a notice names is told though its stamp is
+  unchanged. An ok image and Emscripten have no notice, and the watcher looks
+  when asked (`notified()` false). `native_handle()` is the descriptor an event
+  loop waits upon on Linux and macOS (mcpplibs/os#21).
+- **The tests are mtest's.** Each test file declares an object of
+  `mcpplibs.mtest` (0.5.2, a `[dev-dependencies]` entry) and no `main`; a test
+  that starts copies of itself declares what a copy does (`child`), and its
+  cases are reported, listed and selected as mtest's. The suites of
+  `checks/hosted` and `checks/emscripten` include the same files. Built with
+  mcpp 2026.11.9.1, under which the package being built stands for itself in its
+  tests' graph: mtest, which uses mcpplibs.os, is built against the os under
+  test.
+
 ## 0.4.1
 
 - **A standard stream kept (`stdio::capture`).** `capture::begin(stream::error)`

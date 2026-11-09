@@ -238,6 +238,57 @@ result<identity> identity_of(const std::filesystem::path& node);
 result<void> rename(const std::filesystem::path& from, const std::filesystem::path& to,
                     bool replace = true);
 
+// --- changes -------------------------------------------------------------------
+
+// TOLD WHICH NAMES CHANGED (0.4.2). A watcher holds names --- files and
+// directories, which need not exist yet --- and answers which of them changed
+// since it last answered: a file's content, its kind or its node (a file
+// replaced by a rename over it, as editors save), a name created or removed, a
+// directory's entries made, removed or renamed. A directory's entries are not
+// watched below it, nor their content: a file to be watched is added itself.
+//
+// THE SYSTEM'S NOTICE SAYS WHEN AND WHERE TO LOOK; THE NAMES' OWN STATE SAYS
+// WHAT CHANGED. Where the system gives notice (inotify, kqueue,
+// ReadDirectoryChangesW) the watcher sleeps until it does, and a notice of
+// another name in a watched directory reports nothing; a name the notice names
+// is reported though its stamp is unchanged, so two writes within a volume's
+// time resolution are told. Where it gives none (an ok image, Emscripten) the
+// watcher compares the names' stamps and identities when asked, and a wait
+// looks every `kPollInterval'.
+class watcher {
+public:
+    static result<watcher> open();
+
+    watcher(watcher&&) noexcept;
+    watcher& operator=(watcher&&) noexcept;
+    watcher(const watcher&) = delete;
+    watcher& operator=(const watcher&) = delete;
+    ~watcher();
+
+    // A name watched from now; one added again is kept once. Its directory
+    // need not exist: the nearest that does is watched until it does.
+    result<void> add(const std::filesystem::path& name);
+    void remove(const std::filesystem::path& name);
+
+    // The names added that changed since the last answer, each once and as it
+    // was added, in the order added; waiting at most `wait' for the first.
+    std::vector<std::filesystem::path> changed(std::chrono::milliseconds wait = std::chrono::milliseconds{0});
+
+    // Whether the system gives notice; false: the watcher looks when asked.
+    bool notified() const noexcept;
+    // What an event loop waits upon, readable when the system has a notice and
+    // `changed()' has something to look at: a descriptor on Linux and macOS;
+    // nothing elsewhere.
+    std::optional<std::intptr_t> native_handle() const noexcept;
+
+    static constexpr std::chrono::milliseconds kPollInterval{50};
+
+private:
+    struct state;
+    explicit watcher(std::unique_ptr<state> s) noexcept;
+    std::unique_ptr<state> s_;
+};
+
 }  // namespace mcpplibs::os::fs
 
 // Each system's own (src/<os>/fs.cpp).
@@ -249,4 +300,25 @@ bool exchange_unsupported(int condition);
 std::string volume_type(const std::filesystem::path& directory);
 owner owner_of(const std::filesystem::path& node);
 bool writable(const std::filesystem::path& node);
+
+// THE SYSTEM'S NOTICE OF CHANGE, for `watcher' (src/<os>/watch.cpp; none in an
+// ok image and on Emscripten, src/watch/none.cpp). A notice names a node, in
+// the generic spelling: its content or kind changed, or, `entries', a
+// directory's entries.
+struct notifier;
+struct notice {
+    std::string name;
+    bool entries = false;
+};
+// Null where the system gives no notice, or it cannot be had now.
+notifier* notifier_open();
+void notifier_close(notifier* n) noexcept;
+// Notices of a node from now: a directory's entries and theirs, or a file
+// itself, which a system that watches its directory needs nothing more for.
+// Watched again, the node is watched afresh (a node replaced under its name).
+bool notifier_watch(notifier& n, const std::string& node, bool directory);
+void notifier_unwatch(notifier& n, const std::string& node);
+// The notices there now, or the first that arrive within `wait'.
+std::vector<notice> notifier_take(notifier& n, std::chrono::milliseconds wait);
+std::optional<std::intptr_t> notifier_handle(const notifier& n) noexcept;
 }  // namespace mcpplibs::os::fs::sys

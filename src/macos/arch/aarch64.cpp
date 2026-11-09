@@ -7,26 +7,27 @@
 
 namespace {
 
-long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0) {
+long call(long n, long a = 0, long b = 0, long c = 0, long d = 0, long e = 0, long f = 0) {
     register long x16 __asm__("x16") = n;
     register long x0 __asm__("x0") = a;
     register long x1 __asm__("x1") = b;
     register long x2 __asm__("x2") = c;
     register long x3 __asm__("x3") = d;
     register long x4 __asm__("x4") = e;
+    register long x5 __asm__("x5") = f;
     long failed;
     // The carry flag reports a failure and x0 is then the error number; x1
     // comes back too, so it is an output as well.
     __asm__ __volatile__("svc #0x80\n\tcset %2, cs"
                          : "+r"(x0), "+r"(x1), "=r"(failed)
-                         : "r"(x16), "r"(x2), "r"(x3), "r"(x4)
+                         : "r"(x16), "r"(x2), "r"(x3), "r"(x4), "r"(x5)
                          : "memory", "cc");
     return failed ? -x0 : x0;
 }
 
 constexpr long nr_getrusage = 117, nr_open = 5, nr_write = 4, nr_close = 6, nr_getpid = 20, nr_kill = 37, nr_sigaction = 46,
                nr_sigprocmask = 48, nr_dup2 = 90, nr_fcntl = 92, nr_statfs64 = 345, nr_renameatx_np = 488,
-               nr_geteuid = 25, nr_umask = 60;
+               nr_geteuid = 25, nr_umask = 60, nr_kqueue = 362, nr_kevent = 363;
 
 constexpr long f_dupfd_cloexec = 67, sig_unblock = 2;
 
@@ -83,6 +84,20 @@ long statfs(const char* path, statfs_t* out) {
 long renameatx_np(int from_dir, const char* from, int to_dir, const char* to, unsigned flags) {
     return call(nr_renameatx_np, from_dir, reinterpret_cast<long>(from), to_dir, reinterpret_cast<long>(to),
                 static_cast<long>(flags));
+}
+
+long kqueue() { return call(nr_kqueue); }
+
+long kevent(int kq, const kevent_t* changes, int count, kevent_t* events, int capacity, long milliseconds) {
+    long timeout[2] = { milliseconds / 1000, (milliseconds % 1000) * 1000000 };
+    return call(nr_kevent, kq, reinterpret_cast<long>(changes), count, reinterpret_cast<long>(events), capacity,
+                milliseconds < 0 ? 0 : reinterpret_cast<long>(timeout));
+}
+
+long open_events(const char* path) {
+    // open(path, O_EVTONLY | O_CLOEXEC): a descriptor for notices only, which
+    // does not keep a volume from being unmounted.
+    return call(nr_open, reinterpret_cast<long>(path), 0x8000 | 0x1000000);
 }
 
 }  // namespace mcpplibs::os::macos_kernel
