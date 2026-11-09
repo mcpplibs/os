@@ -32,7 +32,7 @@ bool writable_fixed_drive(char drive, std::wstring_view child);
 
 }  // namespace mcpplibs::os::windows
 
-// COM AND THE WINDOWS RUNTIME (0.5.0): the system's object model, through
+// COM AND THE WINDOWS RUNTIME (0.4.4): the system's object model, through
 // which the services that are not functions are reached (the shell's dialogs,
 // toast notifications, the Windows Runtime's classes). No other system has it
 // (R2). The libraries are found when first used (ole32, combase), so a program

@@ -13,7 +13,7 @@ bool translated();
 
 }  // namespace mcpplibs::os::macos
 
-// THE OBJECTIVE-C RUNTIME (0.5.0): how the system's frameworks are called
+// THE OBJECTIVE-C RUNTIME (0.4.4): how the system's frameworks are called
 // (Foundation, AppKit, UserNotifications). No other system has it (R2).
 // libobjc and the frameworks are loaded when first used (`os::library'), so a
 // program links nothing for them; an image loads no library of the system,

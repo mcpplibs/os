@@ -13,7 +13,7 @@ int main() {
     if constexpr (os::is_linux) n += static_cast<int>(os::linux::translator().has_value());
     if constexpr (os::is_macos) n += static_cast<int>(os::macos::translated());
     if constexpr (os::is_windows) n += static_cast<int>(os::windows::elevated());
-    // A member template too (0.5.0): its definition is not instantiated where it is not used.
+    // A member template too (0.4.4): its definition is not instantiated where it is not used.
     if constexpr (os::is_windows) n += static_cast<int>(os::windows::com::object{}.call(3, 0).has_value());
     if constexpr (os::is_macos) n += static_cast<int>(os::macos::objc::send<int>(nullptr, "hash"));
     // The same calls in the form that also holds in an image (0.4.0).

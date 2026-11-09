@@ -1,4 +1,4 @@
-// COM and the Windows Runtime (mcpplibs.os.windows, 0.5.0): ole32's and
+// COM and the Windows Runtime (mcpplibs.os.windows, 0.4.4): ole32's and
 // combase's functions, found when first used (LoadLibraryW and
 // GetProcAddress, as advapi32's are in src/windows/windows.cpp), so that a
 // program links nothing beyond kernel32 for them.

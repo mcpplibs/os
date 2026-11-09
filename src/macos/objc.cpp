@@ -1,4 +1,4 @@
-// The Objective-C runtime (mcpplibs.os.macos, 0.5.0): libobjc's functions and
+// The Objective-C runtime (mcpplibs.os.macos, 0.4.4): libobjc's functions and
 // libSystem's blocks, found when first used through this package's own
 // `library', so that a program links nothing for them and the unit includes
 // no header of the SDK.

@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0
+## 0.4.4
 
 - **The system's object models: `windows::com` and `macos::objc`.** A system's
   services that are objects rather than functions --- toast notifications, the

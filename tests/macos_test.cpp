@@ -1,4 +1,4 @@
-// mcpplibs.os.macos: the Objective-C runtime (0.5.0) --- strings in four
+// mcpplibs.os.macos: the Objective-C runtime (0.4.4) --- strings in four
 // scripts there and back, a framework's class asked and a message sent, a
 // class defined here receiving messages, a block called back and let go. A
 // program that loads no library (a static one) is told so. Elsewhere, and in

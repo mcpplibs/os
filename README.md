@@ -192,7 +192,7 @@ bound of ten seconds, and each answer is asked once per process. `host()` decide
 question applies, which is that system's convention; whether a program can be started is
 openkal's capability and is answered by the start itself (openkal SPEC clause 30).
 
-## The system's object models (0.5.0)
+## The system's object models (0.4.4)
 
 Some of a system's services are not functions but objects: the shell's dialogs, notifications,
 the Windows Runtime's classes, AppKit and the frameworks above Foundation. `windows::com` and

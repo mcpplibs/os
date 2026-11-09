@@ -1,4 +1,4 @@
-// mcpplibs.os.windows: COM and the Windows Runtime (0.5.0) --- an apartment,
+// mcpplibs.os.windows: COM and the Windows Runtime (0.4.4) --- an apartment,
 // a Windows Runtime class's factory and an instance it makes, methods called
 // by their slots, strings in four scripts there and back, an interface an
 // object lacks refused, and a delegate of this program's own called back and
