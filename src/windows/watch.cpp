@@ -1,7 +1,8 @@
 // Windows's notice of change for `fs::watcher': a directory's changes read
 // overlapped (ReadDirectoryChangesW), one event per directory. A directory is
 // watched for its entries and their content, which covers a file in it; a file
-// needs nothing more.
+// needs nothing more. One write may complete several reads; the watcher looks
+// at its names, so that is told once.
 module;
 #include "win32.h"
 
@@ -48,42 +49,17 @@ void close(notifier::directory& d) {
     CloseHandle(d.event);
 }
 
-// FILE_NOTIFY_INFORMATION records: the offset of the next, the action, the
-// name's length in bytes, the name in UTF-16 relative to the directory.
-void parse(const notifier::directory& d, okos_dword bytes, std::vector<notice>& out) {
-    if (bytes == 0) {   // more changed than the buffer held: every entry may have
-        out.push_back({ d.name, true });
-        return;
-    }
-    const auto* base = reinterpret_cast<const unsigned char*>(d.buffer.data());
-    for (okos_dword at = 0;;) {
-        okos_dword next, action, length;
-        std::memcpy(&next, base + at, 4);
-        std::memcpy(&action, base + at + 4, 4);
-        std::memcpy(&length, base + at + 8, 4);
-        std::u16string name(length / 2, u'\0');
-        std::memcpy(name.data(), base + at + 12, length);
-        std::string entry = utf8_from_utf16(name);
-        std::ranges::replace(entry, '\\', '/');
-        out.push_back({ d.name.ends_with('/') ? d.name + entry : d.name + "/" + entry, false });
-        if (action != 3 /* MODIFIED */) out.push_back({ d.name, true });
-        if (next == 0) break;
-        at += next;
-    }
-}
-
-// What the directories completed: each read, reissued.
-void harvest(notifier& n, std::vector<notice>& out) {
+// Whether a directory's read completed --- a change, or the directory gone ---
+// each such read reissued. What changed is not read: the watcher looks.
+bool harvest(notifier& n) {
+    bool any = false;
     for (auto& d : n.directories) {
         okos_dword bytes = 0;
-        if (!late::GetOverlappedResult(d.handle, &d.overlapped, &bytes, 0)) {
-            if (GetLastError() == kIncomplete) continue;
-            out.push_back({ d.name, true });   // the directory went away, or its read failed
-        } else {
-            parse(d, bytes, out);
-        }
+        if (!late::GetOverlappedResult(d.handle, &d.overlapped, &bytes, 0) && GetLastError() == kIncomplete) continue;
+        any = true;
         request(d);
     }
+    return any;
 }
 
 }  // namespace
@@ -122,22 +98,21 @@ void notifier_unwatch(notifier& n, const std::string& node) {
     n.directories.erase(it);
 }
 
-std::vector<notice> notifier_take(notifier& n, std::chrono::milliseconds wait) {
+bool notifier_wait(notifier& n, std::chrono::milliseconds wait) {
     using clock = std::chrono::steady_clock;
     const auto deadline = clock::now() + wait;
-    std::vector<notice> out;
     for (;;) {
-        harvest(n, out);
+        if (harvest(n)) return true;
         const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - clock::now());
-        if (!out.empty() || left.count() <= 0 || n.directories.empty()) return out;
+        if (left.count() <= 0 || n.directories.empty()) return false;
         // One wait upon every directory's event where the system takes them all
         // (64); beyond, a look every few milliseconds.
         if (n.directories.size() <= 64) {
             std::vector<okos_handle> events;
             for (const auto& d : n.directories) events.push_back(d.event);
             if (late::WaitForMultipleObjects(static_cast<okos_dword>(events.size()), events.data(), 0,
-                                       static_cast<okos_dword>(left.count())) == kTimeout)
-                return out;
+                                             static_cast<okos_dword>(left.count())) == kTimeout)
+                return false;
         } else {
             std::this_thread::sleep_for(std::min(left, std::chrono::milliseconds{10}));
         }

@@ -247,14 +247,15 @@ result<void> rename(const std::filesystem::path& from, const std::filesystem::pa
 // directory's entries made, removed or renamed. A directory's entries are not
 // watched below it, nor their content: a file to be watched is added itself.
 //
-// THE SYSTEM'S NOTICE SAYS WHEN AND WHERE TO LOOK; THE NAMES' OWN STATE SAYS
-// WHAT CHANGED. Where the system gives notice (inotify, kqueue,
-// ReadDirectoryChangesW) the watcher sleeps until it does, and a notice of
-// another name in a watched directory reports nothing; a name the notice names
-// is reported though its stamp is unchanged, so two writes within a volume's
-// time resolution are told. Where it gives none (an ok image, Emscripten) the
-// watcher compares the names' stamps and identities when asked, and a wait
-// looks every `kPollInterval'.
+// THE SYSTEM'S NOTICE SAYS WHEN TO LOOK; THE NAMES' OWN STATE SAYS WHAT
+// CHANGED: a name's stamp (size and time of its last write), its kind and its
+// node. Where the system gives notice (inotify, kqueue, ReadDirectoryChangesW)
+// the watcher sleeps until it does, and a notice of another name, or one write
+// told as several notices, reports nothing more; every system answers alike.
+// Where it gives none (an ok image, Emscripten) the watcher looks when asked,
+// and a wait looks every `kPollInterval'. A write that leaves the size, and the
+// time within the volume's resolution (FAT's two seconds), as they were is not
+// told.
 class watcher {
 public:
     static result<watcher> open();
@@ -302,23 +303,19 @@ owner owner_of(const std::filesystem::path& node);
 bool writable(const std::filesystem::path& node);
 
 // THE SYSTEM'S NOTICE OF CHANGE, for `watcher' (src/<os>/watch.cpp; none in an
-// ok image and on Emscripten, src/watch/none.cpp). A notice names a node, in
-// the generic spelling: its content or kind changed, or, `entries', a
-// directory's entries.
+// ok image and on Emscripten, src/watch/none.cpp): when to look, not what
+// changed.
 struct notifier;
-struct notice {
-    std::string name;
-    bool entries = false;
-};
 // Null where the system gives no notice, or it cannot be had now.
 notifier* notifier_open();
 void notifier_close(notifier* n) noexcept;
-// Notices of a node from now: a directory's entries and theirs, or a file
-// itself, which a system that watches its directory needs nothing more for.
-// Watched again, the node is watched afresh (a node replaced under its name).
+// Notices of a node from now (generic spelling): a directory's entries and
+// theirs, or a file itself, which a system that watches its directory needs
+// nothing more for. Watched again, the node is watched afresh (a node replaced
+// under its name).
 bool notifier_watch(notifier& n, const std::string& node, bool directory);
 void notifier_unwatch(notifier& n, const std::string& node);
-// The notices there now, or the first that arrive within `wait'.
-std::vector<notice> notifier_take(notifier& n, std::chrono::milliseconds wait);
+// Whether a notice is there, or arrives within `wait'; those there are read.
+bool notifier_wait(notifier& n, std::chrono::milliseconds wait);
 std::optional<std::intptr_t> notifier_handle(const notifier& n) noexcept;
 }  // namespace mcpplibs::os::fs::sys

@@ -12,7 +12,7 @@ notifier* notifier_open() { return nullptr; }
 void notifier_close(notifier*) noexcept {}
 bool notifier_watch(notifier&, const std::string&, bool) { return false; }
 void notifier_unwatch(notifier&, const std::string&) {}
-std::vector<notice> notifier_take(notifier&, std::chrono::milliseconds) { return {}; }
+bool notifier_wait(notifier&, std::chrono::milliseconds) { return false; }
 std::optional<std::intptr_t> notifier_handle(const notifier&) noexcept { return std::nullopt; }
 
 }  // namespace mcpplibs::os::fs::sys

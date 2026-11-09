@@ -7,12 +7,13 @@
   of them changed since it last answered, each once and as it was added: a
   file's content, kind or node (a file replaced by a rename over it, as editors
   save), a name made or removed, a directory's entries. The system's notice says
-  when and where to look --- inotify on Linux and kqueue on macOS by the
-  kernel's calls, `ReadDirectoryChangesW` on Windows --- and each name's stamp
-  and identity say what changed, so every system answers alike and a notice of
-  another name tells nothing; a name a notice names is told though its stamp is
-  unchanged. An ok image and Emscripten have no notice, and the watcher looks
-  when asked (`notified()` false). `native_handle()` is the descriptor an event
+  when to look --- inotify on Linux and kqueue on macOS by the kernel's calls,
+  `ReadDirectoryChangesW` on Windows --- and each name's stamp, kind and
+  identity say what changed, so every system answers alike: a notice of another
+  name, or one write a system tells as several notices, tells nothing more. A
+  write that leaves the size, and the time within the volume's resolution, as
+  they were is not told. An ok image and Emscripten have no notice, and the
+  watcher looks when asked (`notified()` false). `native_handle()` is the descriptor an event
   loop waits upon on Linux and macOS (mcpplibs/os#21).
 - **The tests are mtest's.** Each test file declares an object of
   `mcpplibs.mtest` (0.5.2, a `[dev-dependencies]` entry) and no `main`; a test

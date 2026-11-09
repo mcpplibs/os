@@ -70,21 +70,17 @@ void notifier_unwatch(notifier& n, const std::string& node) {
     if (it != n.nodes.end()) forget(n, it->first);
 }
 
-std::vector<notice> notifier_take(notifier& n, std::chrono::milliseconds wait) {
-    std::vector<notice> out;
+bool notifier_wait(notifier& n, std::chrono::milliseconds wait) {
     std::array<k::kevent_t, 64> events{};
     const long got = k::kevent(n.queue, nullptr, 0, events.data(), static_cast<int>(events.size()),
                                static_cast<long>(wait.count()));
     for (long i = 0; i < got; ++i) {
-        const int fd = static_cast<int>(events[static_cast<std::size_t>(i)].ident);
-        const auto it = n.nodes.find(fd);
-        if (it == n.nodes.end()) continue;
-        out.push_back({ it->second.name, it->second.directory });
         // A node removed or renamed away is watched no more; the watcher asks
         // again of what its name names now.
-        if (events[static_cast<std::size_t>(i)].fflags & kGone) forget(n, fd);
+        const auto& e = events[static_cast<std::size_t>(i)];
+        if (e.fflags & kGone) forget(n, static_cast<int>(e.ident));
     }
-    return out;
+    return got > 0;
 }
 
 std::optional<std::intptr_t> notifier_handle(const notifier& n) noexcept { return n.queue; }

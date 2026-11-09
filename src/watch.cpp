@@ -83,19 +83,14 @@ struct watcher::state {
         n.armed = std::move(nodes);
     }
 
-    // Whether a notice is about the name: it names it, or --- for a directory
-    // --- its entries changed.
-    static bool told(const name& n, const std::vector<sys::notice>& notices) {
-        return std::ranges::any_of(notices, [&](const sys::notice& x) {
-            return same(from_utf8(x.name), from_utf8(n.key)) && (x.entries || !n.last.directory || !n.last.exists);
-        });
-    }
-
-    std::vector<std::filesystem::path> evaluate(const std::vector<sys::notice>& notices) {
+    // What changed: each name whose state differs from the last answer's. A
+    // system's notice only says to look; one write the system tells as several
+    // notices, or a notice of another name, changes nothing here.
+    std::vector<std::filesystem::path> evaluate() {
         std::vector<std::filesystem::path> out;
         for (auto& n : names) {
             const auto now = snapshot_of(n.key);
-            const bool changed = now != n.last || told(n, notices);
+            const bool changed = now != n.last;
             const bool node_changed = now.exists != n.last.exists || now.id != n.last.id;
             n.last = now;
             if (!changed) continue;
@@ -150,15 +145,12 @@ std::vector<std::filesystem::path> watcher::changed(std::chrono::milliseconds wa
     };
     // What is there now, then what arrives: a notice of another name in a
     // watched directory is no change of these, and the wait goes on.
-    auto out = s_->evaluate(s_->notifier ? sys::notifier_take(*s_->notifier, std::chrono::milliseconds{0})
-                                         : std::vector<sys::notice>{});
+    if (s_->notifier) sys::notifier_wait(*s_->notifier, std::chrono::milliseconds{0});
+    auto out = s_->evaluate();
     while (out.empty() && remaining() > std::chrono::milliseconds{0}) {
-        if (s_->notifier) {
-            out = s_->evaluate(sys::notifier_take(*s_->notifier, remaining()));
-        } else {
-            std::this_thread::sleep_for(std::min(kPollInterval, remaining()));
-            out = s_->evaluate({});
-        }
+        if (s_->notifier) sys::notifier_wait(*s_->notifier, remaining());
+        else std::this_thread::sleep_for(std::min(kPollInterval, remaining()));
+        out = s_->evaluate();
     }
     return out;
 }
