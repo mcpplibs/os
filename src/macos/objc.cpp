@@ -24,6 +24,7 @@ struct runtime_functions {
     void (*pool_pop)(void*) = nullptr;
     void* (*allocate_class)(void*, const char*, std::size_t) = nullptr;
     void (*register_class)(void*) = nullptr;
+    void (*dispose_class)(void*) = nullptr;
     bool (*add_method)(void*, void*, void*, const char*) = nullptr;
     void* (*get_protocol)(const char*) = nullptr;
     bool (*add_protocol)(void*, void*) = nullptr;
@@ -60,13 +61,14 @@ struct runtime_functions {
         pool_pop = objc.function<void(void*)>("objc_autoreleasePoolPop");
         allocate_class = objc.function<void*(void*, const char*, std::size_t)>("objc_allocateClassPair");
         register_class = objc.function<void(void*)>("objc_registerClassPair");
+        dispose_class = objc.function<void(void*)>("objc_disposeClassPair");
         add_method = objc.function<bool(void*, void*, void*, const char*)>("class_addMethod");
         get_protocol = objc.function<void*(const char*)>("objc_getProtocol");
         add_protocol = objc.function<bool(void*, void*)>("class_addProtocol");
         stack_block = system.symbol("_NSConcreteStackBlock");
         block_copy = system.function<void*(const void*)>("_Block_copy");
         if (!get_class || !register_selector || !message || !retain || !release || !pool_push || !pool_pop || !allocate_class ||
-            !register_class || !add_method || !get_protocol || !add_protocol || !stack_block || !block_copy) {
+            !register_class || !dispose_class || !add_method || !get_protocol || !add_protocol || !stack_block || !block_copy) {
             missing = error{errc::not_found, "the Objective-C runtime: a function it should have is absent", 0};
             message = nullptr;  // nothing is sent
         }
@@ -187,8 +189,10 @@ result<void*> define_class(std::string_view name, std::string_view superclass, s
     void* made = runtime().allocate_class(parent, std::string(name).c_str(), 0);
     if (!made) return std::unexpected(error{errc::exists, std::format("the class {}", name), 0});
     for (const method& each : methods)
-        if (!runtime().add_method(made, selector(each.selector), each.implementation, std::string(each.types).c_str()))
+        if (!runtime().add_method(made, selector(each.selector), each.implementation, std::string(each.types).c_str())) {
+            runtime().dispose_class(made);  // never registered: taken back whole
             return std::unexpected(error{errc::invalid, std::format("the method {} of {}", each.selector, name), 0});
+        }
     for (const std::string_view protocol : protocols)
         if (void* known = runtime().get_protocol(std::string(protocol).c_str())) (void)runtime().add_protocol(made, known);
     runtime().register_class(made);

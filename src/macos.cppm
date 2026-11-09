@@ -127,7 +127,9 @@ id make_block(void* invoke, block_body* body);
 
 // A block (a completion handler, an enumeration's body) that runs `body': a
 // copy the runtime holds, which the receiver may keep; `body' goes with the
-// last reference to it.
+// last reference to it. It carries no signature (BLOCK_HAS_SIGNATURE), so a
+// receiver that reads one (NSInvocation) does not take it; one that calls it,
+// as a completion handler is called, does.
 template <class R, class... A>
 id block(std::function<R(A...)> body) {
     struct typed : detail::block_body {
