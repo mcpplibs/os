@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.3
+
+- **openkal 0.25 and the implementations of its family are admitted.** The
+  requirements are ranges over both families: openkal `>=0.24.0, <0.26.0`,
+  openkal-linux `>=0.25.0, <0.27.0`, openkal-macos `>=0.22.0, <0.24.0`,
+  openkal-windows `>=0.20.0, <0.22.0`, openkal-emscripten `>=0.13.0, <0.15.0`.
+  A graph that holds the 0.24 family builds as before, and one that holds the
+  0.25 family --- the implementations' own tests, which reach this package
+  through mtest while the package under test stands for itself --- resolves too.
+  Nothing this library calls changed; it states no newer mcpp than before.
+
 ## 0.4.2
 
 - **Which names changed (`fs::watcher`).** A watcher holds names --- files and
