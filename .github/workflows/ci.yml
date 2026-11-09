@@ -81,7 +81,10 @@ jobs:
 
       - name: The mcpp under cross-validation
         run: |
+          # The configured mirror (GLOBAL), then CN (GitCode first) from the fourth attempt: a cached index
+          # can predate the release, and xlings keeps it when an anonymous refresh fails.
           for attempt in 1 2 3 4 5 6; do
+            [ "$attempt" = 4 ] && { xlings config --mirror CN > /dev/null 2>&1 || true; }
             xlings update > /dev/null 2>&1 || true
             if xlings install "$MCPP_INSTALL" -y -g; then break; fi
             [ "$attempt" = 6 ] && { echo "::error::mcpp could not be installed"; exit 1; }
@@ -179,7 +182,10 @@ jobs:
 
       - name: The mcpp under cross-validation
         run: |
+          # The configured mirror (GLOBAL), then CN (GitCode first) from the fourth attempt: a cached index
+          # can predate the release, and xlings keeps it when an anonymous refresh fails.
           for attempt in 1 2 3 4 5 6; do
+            [ "$attempt" = 4 ] && { xlings config --mirror CN > /dev/null 2>&1 || true; }
             xlings update > /dev/null 2>&1 || true
             if xlings install "$MCPP_INSTALL" -y -g; then break; fi
             [ "$attempt" = 6 ] && { echo "::error::mcpp could not be installed"; exit 1; }
@@ -384,7 +390,10 @@ jobs:
             | bash -s "$XLINGS_VERSION"
           echo "$HOME/.xlings/subos/current/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.xlings/subos/current/bin:$PATH"
+          # The configured mirror (GLOBAL), then CN (GitCode first) from the fourth attempt: a cached index
+          # can predate the release, and xlings keeps it when an anonymous refresh fails.
           for attempt in 1 2 3 4 5 6; do
+            [ "$attempt" = 4 ] && { xlings config --mirror CN > /dev/null 2>&1 || true; }
             xlings update > /dev/null 2>&1 || true
             if xlings install "$MCPP_INSTALL" -y -g; then break; fi
             [ "$attempt" = 6 ] && { echo "::error::mcpp could not be installed"; exit 1; }
