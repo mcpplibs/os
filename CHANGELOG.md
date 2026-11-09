@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.4
+
+- **The system's object models: `windows::com` and `macos::objc`.** A system's
+  services that are objects rather than functions --- toast notifications, the
+  shell's dialogs, the Windows Runtime's classes; Foundation, AppKit,
+  UserNotifications --- are reached through them. On Windows: an apartment, one
+  reference to an object (`object`, AddRef and Release paired), a method called
+  by its slot, `query`, `create`, `hstring` (UTF-8 there and back), `activate`,
+  `factory`, and `delegate`, an object of the program's own that the system
+  calls back (IUnknown, IAgileObject and an interface whose method is
+  `Invoke(sender, args)`); an HRESULT becomes an `errc`. On macOS: `id` (one
+  reference), `send<R>` (objc_msgSend typed as the method), an autorelease pool,
+  classes and selectors by name, frameworks loaded by name, NSString from and to
+  UTF-8, a class defined at run time (a delegate), and `block`, a block the
+  runtime holds and releases. Both are platform modules (R2, R5): declared on
+  every target, defined on their own platform, not defined in an image, which
+  loads no library of the system. The libraries are found when first used
+  (ole32, combase; libobjc, libSystem's blocks through `os::library`), so
+  nothing is added to a program's link. The tests make a Windows Runtime
+  `Uri`, call its methods, refuse an interface it lacks and are called back by
+  a delegate; on macOS they send NSProcessInfo a message, define a class that
+  receives messages and enumerate an NSArray with a block, each released after;
+  strings in four scripts go through the system and back on both. The R5 check
+  covers a member template in a discarded branch.
+
 ## 0.4.3
 
 - **openkal 0.25 and the implementations of its family are admitted.** The
