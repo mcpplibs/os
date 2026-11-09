@@ -62,6 +62,13 @@ __declspec(dllimport) okos_handle __stdcall GetStdHandle(okos_dword);
 __declspec(dllimport) okos_bool __stdcall GetHandleInformation(okos_handle, okos_dword*);
 }
 
+// OVERLAPPED (0.4.2, `fs::watcher'): two pointer-sized words, two DWORDs, the event.
+struct okos_overlapped {
+    unsigned long long internal, internal_high;
+    okos_dword offset, offset_high;
+    okos_handle event;
+};
+
 namespace late {
 
 template <class F>
@@ -88,6 +95,34 @@ inline okos_handle GetModuleHandleW(const okos_wchar* a0) {
 inline okos_bool K32EnumProcessModules(okos_handle a0, okos_handle* a1, okos_dword a2, okos_dword* a3) {
     static const auto f = find<okos_bool (__stdcall*)(okos_handle, okos_handle*, okos_dword, okos_dword*)>("K32EnumProcessModules");
     return f(a0, a1, a2, a3);
+}
+// 0.4.2, `fs::watcher': a directory's changes (ReadDirectoryChangesW) read
+// overlapped, an event per directory and a wait upon several.
+inline okos_bool ReadDirectoryChangesW(okos_handle a0, void* a1, okos_dword a2, okos_bool a3, okos_dword a4, okos_dword* a5,
+                                       okos_overlapped* a6, void* a7) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, void*, okos_dword, okos_bool, okos_dword, okos_dword*,
+                                                      okos_overlapped*, void*)>("ReadDirectoryChangesW");
+    return f(a0, a1, a2, a3, a4, a5, a6, a7);
+}
+inline okos_handle CreateEventW(void* a0, okos_bool a1, okos_bool a2, const okos_wchar* a3) {
+    static const auto f = find<okos_handle (__stdcall*)(void*, okos_bool, okos_bool, const okos_wchar*)>("CreateEventW");
+    return f(a0, a1, a2, a3);
+}
+inline okos_bool ResetEvent(okos_handle a0) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle)>("ResetEvent");
+    return f(a0);
+}
+inline okos_dword WaitForMultipleObjects(okos_dword a0, const okos_handle* a1, okos_bool a2, okos_dword a3) {
+    static const auto f = find<okos_dword (__stdcall*)(okos_dword, const okos_handle*, okos_bool, okos_dword)>("WaitForMultipleObjects");
+    return f(a0, a1, a2, a3);
+}
+inline okos_bool GetOverlappedResult(okos_handle a0, okos_overlapped* a1, okos_dword* a2, okos_bool a3) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, okos_overlapped*, okos_dword*, okos_bool)>("GetOverlappedResult");
+    return f(a0, a1, a2, a3);
+}
+inline okos_bool CancelIoEx(okos_handle a0, okos_overlapped* a1) {
+    static const auto f = find<okos_bool (__stdcall*)(okos_handle, okos_overlapped*)>("CancelIoEx");
+    return f(a0, a1);
 }
 inline okos_bool GetVolumePathNameW(const okos_wchar* a0, okos_wchar* a1, okos_dword a2) {
     static const auto f = find<okos_bool (__stdcall*)(const okos_wchar*, okos_wchar*, okos_dword)>("GetVolumePathNameW");

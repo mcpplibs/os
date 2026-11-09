@@ -52,7 +52,7 @@ jobs:
       - name: Install the actual native compiler
         run: |
           xlings update
-          xlings install mcpp@2026.11.7.2 -y -g
+          xlings install mcpp@2026.11.9.1 -y -g
           spec='${{ matrix.toolchain }}'
           case "$spec" in
             msvc@system) mcpp toolchain default msvc ;;

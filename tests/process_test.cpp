@@ -1,23 +1,23 @@
 // mcpplibs.os.process: this test starts copies of itself.
-#include "check.hpp"
+#include <cstdio>   // `stderr': the C library's own stream, which a capture must also hold
 import std;
 import mcpplibs.os;
+import mcpplibs.mtest;
 
 namespace os = mcpplibs::os;
+using namespace mcpplibs::mtest;
 
-// What starts this program again with an errand.
+// What starts this program again with an errand: the copy is the child below.
 os::process::spawn_options copy_of_self(std::string errand) {
-    const auto again = os::env::self_command();
+    const std::vector<std::string> args{ std::move(errand) };
+    const auto again = child_command("errand", args);
     os::process::spawn_options o;
-    if (again.empty()) return o;
     o.program = again.front();
     o.args.assign(again.begin() + 1, again.end());
-    o.args.push_back("--child");
-    o.args.push_back(std::move(errand));
     return o;
 }
 
-int child(std::string_view errand) {
+int run_errand(std::string_view errand) {
     if (errand == "say") {
         (void)os::stdio::write_output("said");
         return 0;
@@ -180,40 +180,35 @@ int child(std::string_view errand) {
     return 99;
 }
 
-int main(int argc, char** argv) {
-    if (argc > 2 && std::string_view(argv[1]) == "--child") return child(argv[2]);
+// A copy of this program started with an errand does it, and runs no case.
+child errand_child{"errand", [](std::vector<std::string> args) { return args.size() == 1 ? run_errand(args[0]) : 98; }};
+
+UTest process_tests{"process", [] {
     const auto self = os::env::image();
-    check(self.has_value(), "this program's image is named");
-    if (!self) return g_failures;
+    expect(self.has_value()) << "this program's image is named";
+    if (!self) return;
     // What starts this program again: its image, or in an ok image the loader
     // and the image.
     const auto again = os::env::self_command();
-    check(!again.empty(), "what starts this program again is known");
-    auto copy = [&](std::string errand) {
-        os::process::spawn_options o;
-        o.program = again.front();
-        o.args.assign(again.begin() + 1, again.end());
-        o.args.push_back("--child");
-        o.args.push_back(std::move(errand));
-        return o;
-    };
+    expect(!again.empty()) << "what starts this program again is known";
+    auto copy = [](std::string errand) { return copy_of_self(std::move(errand)); };
 
     {
         auto o = copy("echo");
         auto r = os::process::run(o, "hello");
         if (!r) std::printf("  (the start of %s failed: %s)\n", o.program.string().c_str(), r.error().message().c_str());
-        check(r && r->out == "hello", "a started program reads its input and writes its output");
-        check(r && r->err == "err", "and its error output is collected beside");
-        check(r && r->status.code == 7 && !r->status.by_environment, "and its status is the one it returned");
+        expect(r && r->out == "hello") << "a started program reads its input and writes its output";
+        expect(r && r->err == "err") << "and its error output is collected beside";
+        expect(r && r->status.code == 7 && !r->status.by_environment) << "and its status is the one it returned";
     }
     {
         auto o = copy("env");
         o.env = { { "OS_TEST_VALUE", std::string("set") } };
         auto r = os::process::run(o);
-        check(r && r->out == "set", "an environment override reaches the program");
+        expect(r && r->out == "set") << "an environment override reaches the program";
         o.env = { { "OS_TEST_VALUE", std::nullopt } };
         r = os::process::run(o);
-        check(r && r->out == "<unset>", "and a removal removes");
+        expect(r && r->out == "<unset>") << "and a removal removes";
     }
     {
         const auto dir = std::filesystem::temp_directory_path() / "mcpplibs-os-cwd-probe";
@@ -221,7 +216,7 @@ int main(int argc, char** argv) {
         auto o = copy("cwd");
         o.cwd = dir;
         auto r = os::process::run(o);
-        check(r && r->out == "mcpplibs-os-cwd-probe", "a program runs in the directory it is given");
+        expect(r && r->out == "mcpplibs-os-cwd-probe") << "a program runs in the directory it is given";
     }
     {
         auto o = copy("sleep");
@@ -229,16 +224,16 @@ int main(int argc, char** argv) {
         o.err = os::process::stdio::null;
         o.own_unit = true;
         auto p = os::process::process::spawn(o);
-        check(p.has_value(), "a program is started in a unit of its own");
+        expect(p.has_value()) << "a program is started in a unit of its own";
         if (p) {
-            check(p->id() != 0, "and has an identifier");
+            expect(p->id() != 0) << "and has an identifier";
             auto d = os::process::describe(p->id());
-            check(d && !d->ended, "which another program can ask about");
+            expect(d && !d->ended) << "which another program can ask about";
             auto w = p->wait_for(std::chrono::milliseconds(50));
-            check(w && !w->has_value(), "a wait with a bound expires while it runs");
+            expect(w && !w->has_value()) << "a wait with a bound expires while it runs";
             p->kill();
             auto st = p->wait();
-            check(st && !st->success(), "and the unit, ended, does not report success");
+            expect(st && !st->success()) << "and the unit, ended, does not report success";
         }
     }
     {
@@ -246,9 +241,8 @@ int main(int argc, char** argv) {
         os::process::bounds limits;
         limits.out_limit = 10000;
         auto r = os::process::run(copy("flood"), limits);
-        check(r && r->status.success() && r->out.size() == 10000 && r->out_truncated && !r->timed_out,
-              "a bounded run keeps an output to its limit and says it cut it");
-        check(r && r->err == "tail" && !r->err_truncated, "and keeps the other whole");
+        expect(r && r->status.success() && r->out.size() == 10000 && r->out_truncated && !r->timed_out) << "a bounded run keeps an output to its limit and says it cut it";
+        expect(r && r->err == "tail" && !r->err_truncated) << "and keeps the other whole";
     }
     {
         // 0.2.1: past its hard bound a program is ended, and the run says so.
@@ -258,8 +252,8 @@ int main(int argc, char** argv) {
         const auto began = std::chrono::steady_clock::now();
         auto r = os::process::run(copy("sleep"), limits);
         const auto took = std::chrono::steady_clock::now() - began;
-        check(r && r->timed_out && !r->status.success(), "a bounded run ends a program past its hard bound");
-        check(took < std::chrono::seconds(15), "and does not wait for it to end by itself");
+        expect(r && r->timed_out && !r->status.success()) << "a bounded run ends a program past its hard bound";
+        expect(took < std::chrono::seconds(15)) << "and does not wait for it to end by itself";
     }
     {
         // 0.2.1: a program that ends while what it left holds its output open.
@@ -268,26 +262,24 @@ int main(int argc, char** argv) {
         os::process::bounds limits;
         limits.drain = std::chrono::milliseconds(300);
         auto r = os::process::run(o, limits);
-        check(r && r->status.success() && r->held_open, "a bounded run says an output was held open, and ends the unit");
+        expect(r && r->status.success() && r->held_open) << "a bounded run says an output was held open, and ends the unit";
     }
     if (os::host() == os::platform::linux && !os::is_openkal) {
         // 0.2.1: the threads of a running program, each with its time.
         const auto me = os::process::self();
         const auto threads = me ? os::process::threads(me->id) : std::vector<os::process::thread_info>{};
-        check(!threads.empty() && std::ranges::any_of(threads, [&](const auto& t) { return t.id == me->id; }),
-              "the threads of this program are listed, its first among them");
+        expect(!threads.empty() && std::ranges::any_of(threads, [&](const auto& t) { return t.id == me->id; })) << "the threads of this program are listed, its first among them";
     }
     {
         // 0.2.1: `NAME=value' entries as a started program's environment.
         const std::vector<std::string> entries{ "OS_TEST_VALUE=from-entries", "=C:", "NOEQUALS", "EMPTY=" };
         const auto pairs = os::env::assignments(entries);
-        check(pairs.size() == 2 && pairs[0].first == "OS_TEST_VALUE" && pairs[0].second == "from-entries"
-              && pairs[1].first == "EMPTY" && pairs[1].second == "",
-              "entries become overrides; one without a name before its `=' is left out");
+        expect(pairs.size() == 2 && pairs[0].first == "OS_TEST_VALUE" && pairs[0].second == "from-entries"
+              && pairs[1].first == "EMPTY" && pairs[1].second == "") << "entries become overrides; one without a name before its `=' is left out";
         auto o = copy("env");
         o.env = pairs;
         auto r = os::process::run(o);
-        check(r && r->out == "from-entries", "and reach the program");
+        expect(r && r->out == "from-entries") << "and reach the program";
     }
     {
         // 0.2.8: the directories a started program receives (openkal 0.23),
@@ -314,18 +306,17 @@ int main(int argc, char** argv) {
         if (!ro && ro.error().code == os::errc::not_supported) {
             std::printf("  (this system grants no directories, or cannot hold one read-only: %s)\n", ro.error().message().c_str());
         } else {
-            check(ro && ro->status.success() && ro->out == "refused", "a program granted a directory read-only creates nothing in it");
+            expect(ro && ro->status.success() && ro->out == "refused") << "a program granted a directory read-only creates nothing in it";
             if (ro && ro->out != "refused") std::printf("    it was given: %s\n", ro->err.c_str());
-            check(!std::filesystem::exists(dir / "created.txt"), "and nothing is there");
+            expect(!std::filesystem::exists(dir / "created.txt")) << "and nothing is there";
             auto rw = granted(false);
-            check(rw && rw->status.success() && rw->out == "created", "and granted it to write, creates");
+            expect(rw && rw->status.success() && rw->out == "created") << "and granted it to write, creates";
         }
         std::filesystem::remove(dir / "created.txt");
     }
     {
         auto r = os::process::run(copy("relay"));
-        check(r && r->status.success() && r->out.empty() && r->err == "said",
-              "a program started with its output on the error output writes there");
+        expect(r && r->status.success() && r->out.empty() && r->err == "said") << "a program started with its output on the error output writes there";
     }
     {
         auto o = copy("leave");
@@ -333,16 +324,16 @@ int main(int argc, char** argv) {
         o.err = os::process::stdio::null;
         o.own_unit = true;
         auto p = os::process::process::spawn(o);
-        check(p.has_value(), "a program that leaves another behind is started in a unit");
+        expect(p.has_value()) << "a program that leaves another behind is started in a unit";
         if (p) {
             auto st = p->wait();
-            check(st && st->success(), "and ends");
+            expect(st && st->success()) << "and ends";
             auto held = p->read_output_for(std::chrono::milliseconds(300));
-            check(held && !held->has_value(), "while what it left holds its output open");
+            expect(held && !held->has_value()) << "while what it left holds its output open";
             p->end_unit();
             auto end = p->read_output_for(std::chrono::seconds(20));
-            check(end && end->has_value() && (*end)->empty(), "and ending the rest of its unit closes it");
-            check(p->reads_bounded(), "and every bounded read here was bounded");
+            expect(end && end->has_value() && (*end)->empty()) << "and ending the rest of its unit closes it";
+            expect(p->reads_bounded()) << "and every bounded read here was bounded";
         }
     }
     if (os::interrupt::available()) {
@@ -350,13 +341,13 @@ int main(int argc, char** argv) {
         auto p = os::process::process::spawn(o);
         if (p) {
             auto first = p->read_output();
-            check(first && first->starts_with("armed"), "a started program takes requests to end over");
+            expect(first && first->starts_with("armed")) << "a started program takes requests to end over";
             p->terminate();
             auto st = p->wait();
             if constexpr (os::is_windows) {
-                check(st.has_value(), "a program asked to end is awaited");
+                expect(st.has_value()) << "a program asked to end is awaited";
             } else {
-                check(st && st->by_environment, "and ends as the request would have ended it");
+                expect(st && st->by_environment) << "and ends as the request would have ended it";
             }
         }
     }
@@ -370,25 +361,24 @@ int main(int argc, char** argv) {
             for (;;) { auto c = p->read_output(); if (!c || c->empty()) break; all += *c; }
             (void)p->wait();
         }
-        check(all == "123", "one pipe carries a program's output and error output in the order written");
+        expect(all == "123") << "one pipe carries a program's output and error output in the order written";
     }
     {
         auto o = copy("become");
         auto r = os::process::run(o);
-        check(r && r->out == "became" && r->status.code == 7,
-              "a program that becomes another ends with that program's status and output");
+        expect(r && r->out == "became" && r->status.code == 7) << "a program that becomes another ends with that program's status and output";
     }
     if constexpr (os::is_posix) {
         // A file that is no image is refused as not a program, before this
         // program is replaced.
         const auto file = std::filesystem::temp_directory_path() / "os-not-a-program";
         { std::ofstream(file) << "this is not an executable format\n"; }
-        check(os::fs::set_executable(file, true).has_value(), "the file is made executable");
+        expect(os::fs::set_executable(file, true).has_value()) << "the file is made executable";
         os::process::spawn_options o;
         o.program = file;
         o.in = o.out = o.err = os::process::stdio::inherit;
         auto r = os::process::exec(o);
-        check(!r && r.error().code == os::errc::not_program, "a file that is no image is not a program to become");
+        expect(!r && r.error().code == os::errc::not_program) << "a file that is no image is not a program to become";
         std::filesystem::remove(file);
     }
     if (!os::is_openkal) {
@@ -411,21 +401,19 @@ int main(int argc, char** argv) {
             const bool held = st && st->code == 0 && out == "ready\nlate";
             if (!held)
                 std::printf("  (the copy ended with %d and wrote '%s')\n", st ? st->code : -1, out.c_str());
-            check(held, "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives");
+            expect(held) << "a zero bound asks without waiting, a bounded read of input expires, then reads what arrives";
         }
         auto d = os::process::run(copy("divert"));
-        check(d && d->out == "document" && d->err == "narration",
-              "output sent to the error stream for a while, and the document to the output as it was");
+        expect(d && d->out == "document" && d->err == "narration") << "output sent to the error stream for a while, and the document to the output as it was";
         auto c = os::process::run(copy("capture"));
         const bool kept = c && c->out == "[kal|libc|said]" && c->err == "after";
         const bool refused = c && c->out == "unsupported" && os::is_openkal;
         if (!kept && !refused && c)
             std::printf("  (the copy wrote '%s' and '%s')\n", c->out.c_str(), c->err.c_str());
-        check(kept || refused, "a standard stream kept while it is captured, with what a started program wrote, then put back");
+        expect(kept || refused) << "a standard stream kept while it is captured, with what a started program wrote, then put back";
         // What a program used: its own, and its waited-for children's together.
         auto mine = os::process::resources(os::process::of::self);
-        check(mine ? mine->peak_memory.value_or(0) > 0 : os::is_openkal || os::is_emscripten,
-              "this program's largest resident set is known");
+        expect(mine ? mine->peak_memory.value_or(0) > 0 : os::is_openkal || os::is_emscripten) << "this program's largest resident set is known";
         auto u = os::process::run(copy("use"));
         auto theirs = os::process::resources(os::process::of::children);
         const bool counted = theirs && theirs->peak_memory.value_or(0) >= (60u << 20)
@@ -435,7 +423,7 @@ int main(int argc, char** argv) {
             std::printf("  (children: peak %llu, user %lld ns)\n",
                         static_cast<unsigned long long>(theirs->peak_memory.value_or(0)),
                         static_cast<long long>(theirs->user.count()));
-        check(u && (counted || untold), "a waited-for child's processor time and memory are accounted to its parent");
+        expect(u && (counted || untold)) << "a waited-for child's processor time and memory are accounted to its parent";
     }
     {
         // The command interpreter given a command with quotation marks, joined
@@ -446,34 +434,30 @@ int main(int argc, char** argv) {
             o.program = "cmd.exe";
             o.args = { "/d", "/s", "/c", "\"echo \"a b\" && echo c\"" };
             auto r = os::process::run(o);
-            check(r && r->out.find("\"a b\"") != std::string::npos && r->out.find('c') != std::string::npos,
-                  "the command interpreter runs a command with quotation marks as written");
+            expect(r && r->out.find("\"a b\"") != std::string::npos && r->out.find('c') != std::string::npos) << "the command interpreter runs a command with quotation marks as written";
         } else {
             o.program = again.front();
             auto r = os::process::run(o);
-            check(!r && r.error().code == os::errc::not_supported,
-                  "a joined command line is refused where a program receives a vector");
+            expect(!r && r.error().code == os::errc::not_supported) << "a joined command line is refused where a program receives a vector";
         }
     }
     if (!os::is_openkal) {
         auto r = os::process::run(copy("end-closed"));
         if (os::host() == os::platform::windows)
-            check(r && r->status.code == 5, "Windows has no ending for a closed reader, and the program goes on");
+            expect(r && r->status.code == 5) << "Windows has no ending for a closed reader, and the program goes on";
         else
-            check(r && r->status.by_environment && r->status.shell_code() == 141,
-                  "a program ends as a closed reader ends it: 141 to a shell");
+            expect(r && r->status.by_environment && r->status.shell_code() == 141) << "a program ends as a closed reader ends it: 141 to a shell";
     }
     {
         auto me = os::process::self();
-        check(me && me->id != 0, "this program has an identifier");
-        check(me && os::process::alive(*me), "and is alive");
+        expect(me && me->id != 0) << "this program has an identifier";
+        expect(me && os::process::alive(*me)) << "and is alive";
     }
     // The program the system starts: this one, or in an ok image its loader.
     const auto started = os::is_openkal ? os::env::loader() : self;
     if (started) {
         const auto whole = os::fs::absolute(*started);
-        check(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value(),
-              "a program is found by name in a list of directories");
+        expect(os::env::find_executable(whole.filename().string(), whole.parent_path().string()).has_value()) << "a program is found by name in a list of directories";
     }
     {
         // npm's directory holds `npm.cmd' and an extension-less `npm', the
@@ -484,12 +468,10 @@ int main(int argc, char** argv) {
         (void)os::fs::write(dir / "tool.cmd", "@echo off\n");
         const auto found = os::env::find_executable("tool", os::fs::absolute(dir).string());
         const bool windows = os::host() == os::platform::windows;
-        check(found && found->filename() == (windows ? "tool.cmd" : "tool"),
-              "a bare name finds what the system starts: on Windows by an extension, never the bare file");
+        expect(found && found->filename() == (windows ? "tool.cmd" : "tool")) << "a bare name finds what the system starts: on Windows by an extension, never the bare file";
         const auto named = os::env::find_executable("tool.cmd", os::fs::absolute(dir).string());
-        check(named && named->filename() == "tool.cmd", "and a name with its extension is taken as written");
+        expect(named && named->filename() == "tool.cmd") << "and a name with its extension is taken as written";
         std::error_code ec;
         std::filesystem::remove_all(dir, ec);
     }
-    return g_failures;
-}
+}};

@@ -31,7 +31,9 @@ constexpr long nr_getrusage = 98,
                nr_sysinfo = 99,
                nr_statfs = 137,
                nr_renameat2 = 316,
-               nr_geteuid = 107, nr_umask = 95;
+               nr_geteuid = 107, nr_umask = 95,
+               nr_inotify_init1 = 294, nr_inotify_add_watch = 254, nr_inotify_rm_watch = 255,
+               nr_read = 0, nr_ppoll = 271;
 
 constexpr long f_dupfd_cloexec = 1030, sig_unblock = 1;
 
@@ -98,6 +100,27 @@ long statfs_type(const char* path, unsigned long long* type) {
 long renameat2(int from_dir, const char* from, int to_dir, const char* to, unsigned flags) {
     return call(nr_renameat2, from_dir, reinterpret_cast<long>(from), to_dir, reinterpret_cast<long>(to),
                 static_cast<long>(flags));
+}
+
+long inotify_open() {
+    return call(nr_inotify_init1, 04000 /* IN_NONBLOCK */ | 02000000 /* IN_CLOEXEC */);
+}
+
+long inotify_watch(int fd, const char* path, unsigned mask) {
+    return call(nr_inotify_add_watch, fd, reinterpret_cast<long>(path), static_cast<long>(mask));
+}
+
+long inotify_unwatch(int fd, int watch) { return call(nr_inotify_rm_watch, fd, watch); }
+
+long read(int fd, void* bytes, unsigned long count) {
+    return call(nr_read, fd, reinterpret_cast<long>(bytes), static_cast<long>(count));
+}
+
+long wait_readable(int fd, long milliseconds) {
+    // ppoll: one `struct pollfd' (fd, POLLIN) and a `struct timespec', or none for no bound.
+    struct { int fd; short events, revents; } entry{ fd, 1, 0 };
+    long timeout[2] = { milliseconds / 1000, (milliseconds % 1000) * 1000000 };
+    return call(nr_ppoll, reinterpret_cast<long>(&entry), 1, milliseconds < 0 ? 0 : reinterpret_cast<long>(timeout), 0, 8);
 }
 
 }  // namespace mcpplibs::os::linux_kernel
