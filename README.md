@@ -120,7 +120,7 @@ dropped (0.2.8).
 | `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed) |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
 | `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
-| `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined on their own and, where an image can answer, in an image |
+| `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined on their own and, where an image can answer, in an image; the system's object models, through which its services that are not functions are reached: `windows::com` (COM and the Windows Runtime) and `macos::objc` (the Objective-C runtime) |
 
 ## Rules
 
@@ -185,11 +185,32 @@ would name another system's module on every build. The platform modules in an im
 | `posix::effective_user()` | `/proc/self/status` on Linux, `/usr/bin/id -u` on macOS; the largest number when neither answers |
 | `macos::translated()` | `false`: macOS runs images through an aarch64 okrun only |
 | `windows::code_page()`, `console_output_code_page()`, `long_paths_enabled()`, `machine_registry_path()`, `writable_fixed_drive()`, `posix::set_creation_mask()` | not defined: okrun carries an image's streams and names, and the others belong to a native installation |
+| `windows::com`, `macos::objc` | not defined: an image loads no library of the system; ask `if constexpr (os::is_windows)` / `os::is_macos` |
 
 The system's programs are started by absolute name (`%SystemRoot%\System32`, `/usr/bin`), with a
 bound of ten seconds, and each answer is asked once per process. `host()` decides which system's
 question applies, which is that system's convention; whether a program can be started is
 openkal's capability and is answered by the start itself (openkal SPEC clause 30).
+
+## The system's object models (0.5.0)
+
+Some of a system's services are not functions but objects: the shell's dialogs, notifications,
+the Windows Runtime's classes, AppKit and the frameworks above Foundation. `windows::com` and
+`macos::objc` are how they are reached, and nothing more: a program states the interfaces it
+calls (a method by its slot in COM, a message by its selector and its types in Objective-C), as
+it would from the system's headers, which this package does not include. What a service *is*
+belongs to the library above (a notification's contract, a file dialog's).
+
+| `windows::com` | `macos::objc` |
+|---|---|
+| `apartment::enter` (CoInitializeEx), `object` (one reference: AddRef and Release paired), `object::call(slot, args...)`, `query` (QueryInterface), `create` (CoCreateInstance) | `id` (one reference: objc_retain and objc_release paired), `send<R>(receiver, selector, args...)` (objc_msgSend typed as the method is), `autorelease_pool`, `class_named`, `selector` |
+| `hstring` (UTF-8 there and back, R7), `activate` (RoActivateInstance), `factory` (RoGetActivationFactory) | `string` and `utf8` (NSString, R7), `load_framework` |
+| `delegate(interface, invoked)`: an object the system calls back (`Invoke(sender, args)`, the shape of every Windows Runtime event handler), agile | `define_class` (a delegate's methods), `block(function)`: a block the runtime holds, released with its last reference |
+| `id("…")`: an interface's identity at compile time; `checked(HRESULT)`: E_NOINTERFACE is `not_supported`, a class not registered `not_found` | `available()`: `not_supported` in a program that loads no library |
+
+The libraries are loaded when first used (ole32 and combase; libobjc and libSystem's blocks,
+through `os::library`), so a program links nothing for them and a toolchain without the
+system's import libraries builds them unchanged.
 
 ## As an ok image
 
