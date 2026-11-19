@@ -47,6 +47,10 @@ An observer opens that opaque reference and reports `unit_state::occupied`,
 `empty` or `unknown`. Its type exposes neither admission nor termination.
 Closing it terminates nothing. Missing native identity, including loss of all
 native reference holders on a system that requires them, remains `unknown`.
+`process::units_observable()` answers whether a unit can be declared where the
+program runs. `unit_observer::open` reports `errc::not_supported` for a
+reference made in another process space: that answer does not change by
+waiting, where `unknown` may (0.4.5, openkal 0.26).
 
 `owned_unit::retire(continuation)` seals admission before observing the end of
 external members. The continuation identifies the surviving supervising

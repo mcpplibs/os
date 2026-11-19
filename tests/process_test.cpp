@@ -3,6 +3,7 @@
 import std;
 import mcpplibs.os;
 import mcpplibs.mtest;
+import openkal.version;   // which family the graph holds: a start's bound is its 0.26
 
 namespace os = mcpplibs::os;
 using namespace mcpplibs::mtest;
@@ -181,7 +182,20 @@ int run_errand(std::string_view errand) {
 }
 
 // A copy of this program started with an errand does it, and runs no case.
-child errand_child{"errand", [](std::vector<std::string> args) { return args.size() == 1 ? run_errand(args[0]) : 98; }};
+// `count': how many arguments followed the errand and how many of the test's
+// variables this program holds.
+int count_vectors(const std::vector<std::string>& args) {
+    std::size_t variables = 0;
+    for (int i = 0; i < 2000; ++i)
+        if (os::env::get(std::format("OS_TEST_V{:04}", i)).value_or("").size() == 100) ++variables;
+    (void)os::stdio::write_output(std::format("{} {}", args.size() - 1, variables));
+    return 0;
+}
+
+child errand_child{"errand", [](std::vector<std::string> args) {
+    if (!args.empty() && args[0] == "count") return count_vectors(args);
+    return args.size() == 1 ? run_errand(args[0]) : 98;
+}};
 
 UTest process_tests{"process", [] {
     const auto self = os::env::image();
@@ -424,6 +438,29 @@ UTest process_tests{"process", [] {
                         static_cast<unsigned long long>(theirs->peak_memory.value_or(0)),
                         static_cast<long long>(theirs->user.count()));
         expect(u && (counted || untold)) << "a waited-for child's processor time and memory are accounted to its parent";
+    }
+    if (kal_version() >= (std::uint64_t{26} << 16)) {   // 0.26.0, as openkal encodes a version
+        // A start is bounded by the system alone (openkal 0.26, clause 7.6):
+        // what is given reaches the program, or the system's refusal for its
+        // size is errc::no_space and states both sizes.
+        auto o = copy("count");
+        o.out = os::process::stdio::pipe;
+        for (int i = 0; i < 2000; ++i) o.args.push_back("a");
+        for (int i = 0; i < 2000; ++i) o.env.emplace_back(std::format("OS_TEST_V{:04}", i), std::string(100, 'x'));
+        const auto all = os::process::run(o);
+        const auto stated = [](const os::error& e) {
+            return e.code == os::errc::no_space && e.context.find(" arguments of ") != std::string::npos
+                && e.context.find(" variables of ") != std::string::npos;
+        };
+        if (!all) std::printf("  (two thousand arguments and variables: %s)\n", all.error().message().c_str());
+        expect(all ? all->out == "2000 2000" : stated(all.error()))
+            << "two thousand arguments and two thousand variables reach a started program, or the refusal states their sizes";
+        auto large = copy("count");
+        large.args.push_back(std::string(std::size_t{1} << 20, 'b'));
+        const auto one = os::process::run(large);
+        if (!one) std::printf("  (an argument of one mebibyte: %s)\n", one.error().message().c_str());
+        expect(one ? one->out == "1 0" : stated(one.error()))
+            << "an argument of one mebibyte reaches a started program, or the refusal states its size";
     }
     {
         // The command interpreter given a command with quotation marks, joined
