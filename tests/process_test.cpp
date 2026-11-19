@@ -454,6 +454,7 @@ UTest process_tests{"process", [] {
                 && e.context.find(" variables of ") != std::string::npos;
         };
         if (!all) std::printf("  (two thousand arguments and variables: %s)\n", all.error().message().c_str());
+        else if (all->out != "2000 2000") std::printf("  (the copy counted `%s', status %d)\n", all->out.c_str(), all->status.code);
         if (!all && all.error().code == os::errc::no_memory) {
             std::printf("  (an implementation of the 0.25 family: its bound of 512 entries is not this library's)\n");
         } else {
