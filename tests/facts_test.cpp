@@ -29,6 +29,12 @@ void check_effective_user(std::integral_constant<os::platform, P>, const char* s
 }
 
 UTest facts_tests{"facts", [] {
+    {
+        // The layer beneath this program answers for a version of openkal's specification.
+        const auto layer = mcpplibs::os::env::kernel_layer();
+        expect(layer >= mcpplibs::os::env::layer_version{0, 24, 0} && layer.major == 0)
+            << "the kernel layer states its version: " << layer.major << "." << layer.minor << "." << layer.patch;
+    }
     const bool ci = os::env::get("GITHUB_ACTIONS").has_value();
     int asked = 0;
     os::on<os::platform::linux>([&](auto p) {

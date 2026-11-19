@@ -88,6 +88,14 @@ child helper_child{"helper", [](std::vector<std::string> args) -> int {
 }};
 
 UTest unit_tests{"unit", [] {
+    // Asked before anything is started; where it is false, declaring a unit is
+    // refused, and this program is left outside any unit.
+    if (!process::units_observable()) {
+        const auto refused = process::owned_unit::create();
+        expect(!refused && refused.error().code == mcpplibs::os::errc::not_supported)
+            << "a unit is not declared where the system gives nothing to make a reference from";
+        return;
+    }
     const auto identity = process::self();
     expect(fatal(identity.has_value())) << "this program names itself";
     const auto root = std::filesystem::temp_directory_path() / std::format("os-unit-{}",identity->id);

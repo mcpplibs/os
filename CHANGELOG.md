@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.4.5
+
+- **A start refused for its size says so.** Where the system refuses a start
+  for the size of what it was given, `process::spawn` reports `errc::no_space`,
+  and the error's context states the number and the bytes of the arguments and
+  of the variables (openkal 0.26, clause 7.6). An implementation of the 0.26
+  family keeps no bound of its own, so two thousand arguments or variables
+  reach a started program wherever the system admits them; under the 0.25
+  family a start of more than 512 of either was reported as out of memory.
+- **Whether a unit can be declared is a property (`process::units_observable`).**
+  False where the system gives a program nothing to make a reference from;
+  `owned_unit::create` is then `errc::not_supported`, and a caller learns it
+  before it starts anything. `unit_observer::open` reports
+  `errc::not_supported` for a unit the program can never observe --- a
+  reference made in another process space, or a unit whose identity the system
+  did not keep once its last holder was lost --- an answer that does not change
+  by waiting, where `unit_state::unknown` and any other error may pass (openkal
+  0.26, clause 7.18).
+- **The kernel layer's version (`env::kernel_layer`).** The version of openkal's
+  specification the implementation beneath the program answers for, as
+  `layer_version{major, minor, patch}`: what a report states beside the system.
+- **openkal 0.26 and the implementations of its family are admitted.** openkal
+  `>=0.24.0, <0.27.0`, openkal-linux `>=0.25.0, <0.28.0`, openkal-macos
+  `>=0.22.0, <0.25.0`, openkal-windows `>=0.20.0, <0.24.0` (0.22 and 0.23),
+  openkal-emscripten `>=0.13.0, <0.16.0`. A graph that holds an earlier family
+  builds as before.
+
 ## 0.4.4
 
 - **The system's object models: `windows::com` and `macos::objc`.** A system's

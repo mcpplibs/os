@@ -138,6 +138,9 @@ owned_unit::owned_unit() = default;
 owned_unit::owned_unit(owned_unit&&) noexcept = default;
 owned_unit& owned_unit::operator=(owned_unit&&) noexcept = default;
 owned_unit::~owned_unit() = default;
+bool units_observable() noexcept {
+    return (kal_process_props() & kal::process::job_observe.bits) != 0;
+}
 result<owned_unit> owned_unit::create() {
     auto s = std::make_shared<state>();
     std::string reference(512, '\0'); kal_uintptr used = 0;
@@ -425,6 +428,16 @@ result<process> process::spawn(const spawn_options& o) {
     for (auto& n : nulls) {
         if (n.file.h) kal_fs_close_file(n.file);
         else if (n.channel && n.child.h) kal_process_channel_close(n.child);
+    }
+    if (rc == kal_err_no_space) {
+        // The system refused the start for the size of what it was given
+        // (openkal 0.26, clause 7.6); the two sizes are what a caller acts upon.
+        std::size_t argument_bytes = 0, variable_bytes = 0;
+        for (const auto n : argv_lens) argument_bytes += n;
+        for (const auto n : envp_lens) variable_bytes += n;
+        return fail_streams(from_kal(rc, std::format(
+            "starting {} with {} arguments of {} bytes and {} variables of {} bytes",
+            fs::generic_utf8(program), argv.size(), argument_bytes, envp.size(), variable_bytes)));
     }
     if (rc != kal_ok) return fail_streams(from_kal(rc, std::format("starting {}", fs::generic_utf8(program))));
     if (unit) { s->job = job; s->has_job = true; }

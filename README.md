@@ -47,6 +47,12 @@ An observer opens that opaque reference and reports `unit_state::occupied`,
 `empty` or `unknown`. Its type exposes neither admission nor termination.
 Closing it terminates nothing. Missing native identity, including loss of all
 native reference holders on a system that requires them, remains `unknown`.
+`process::units_observable()` answers whether a unit can be declared where the
+program runs. `unit_observer::open` reports `errc::not_supported` for a unit
+this program can never observe --- a reference made in another process space,
+or a unit whose identity the system did not keep once its last holder was
+lost: that answer does not change by waiting, where `unknown` may (0.4.5,
+openkal 0.26).
 
 `owned_unit::retire(continuation)` seals admission before observing the end of
 external members. The continuation identifies the surviving supervising
@@ -108,7 +114,7 @@ dropped (0.2.8).
 |---|---|
 | `mcpplibs.os.platform` | `PLATFORM`, `ARCH`, `is_linux` / `is_macos` / `is_windows` / `is_posix` / `is_openkal` / `is_emscripten`, `exe_suffix`, `path_list_separator`; `host()`, a constant expression on a native target; `can_run_on(p)` and `on<P>(f)`, a platform question that holds in a native build and an image alike |
 | `mcpplibs.os.error` | `errc` (openkal's closed set of conditions), `error`, `result<T>` |
-| `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT |
+| `mcpplibs.os.env` | variables (names without case on Windows), `NAME=value` entries as overrides (`assignments`), arguments, the program's own image, lists of directories in the host's separator (`split_list`, `join_list`), PATH search with PATHEXT, the kernel layer's version (`kernel_layer`) |
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within`; which names changed (`watcher`: inotify, kqueue, `ReadDirectoryChangesW`; a look when asked in an image and on Emscripten) |
 | `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, declared units, observation and retirement, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |

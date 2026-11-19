@@ -3,11 +3,19 @@ module mcpplibs.os.env;
 import std;
 import openkal.types;
 import openkal.env;
+import openkal.version;
 import openkal.fs;
 import mcpplibs.os.platform;
 import mcpplibs.os.fs;
 
 namespace mcpplibs::os::env {
+
+// openkal encodes a version as major << 32 | minor << 16 | patch.
+layer_version kernel_layer() noexcept {
+    const auto v = kal_version();
+    return { static_cast<unsigned>(v >> 32), static_cast<unsigned>((v >> 16) & 0xffffu),
+             static_cast<unsigned>(v & 0xffffu) };
+}
 
 namespace {
 // A value of a counting operation: the length it has, then the bytes.

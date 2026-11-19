@@ -56,8 +56,20 @@ struct program {
 enum class unit_state { unknown, occupied, empty };
 class process;
 
+// Whether a unit can be declared here: false where the system gives this
+// program nothing to make a reference from, and `owned_unit::create' is then
+// errc::not_supported. A property of where the program runs, asked before
+// anything is started (0.4.5, openkal 0.26).
+bool units_observable() noexcept;
+
 class unit_observer {
 public:
+    // errc::not_supported: this program can never observe the unit --- the
+    // reference was made in another process space of this start of the
+    // system, or the system did not keep the unit's identity once its last
+    // holder was lost --- and the answer is the same however long the caller
+    // waits. Any other error, and `unit_state::unknown', may pass (0.4.5,
+    // openkal 0.26).
     static result<unit_observer> open(std::string_view reference);
     unit_observer() = default;
     unit_observer(unit_observer&&) noexcept;
@@ -150,6 +162,9 @@ struct exit_status {
 
 class process {
 public:
+    // errc::no_space: the system refused the start for the size of its
+    // arguments and variables, and the error's context states the number and
+    // the bytes of each (0.4.5, openkal 0.26).
     static result<process> spawn(const spawn_options& options);
 
     process();
