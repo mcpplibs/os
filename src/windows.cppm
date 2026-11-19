@@ -20,6 +20,16 @@ unsigned code_page();
 // The output code page of the console the stream writes to; 0 when the stream
 // is not a console.
 unsigned console_output_code_page(bool error_stream = false);
+// The code page in which a console program this program starts writes its text
+// to a pipe or a file (0.4.6, mcpplibs.os.text): the output code page of the
+// console this program is attached to, whatever its own streams are, and the
+// system's ANSI code page when it is attached to none --- the page a program
+// that declares none of its own uses, whatever this program declares.
+unsigned console_text_code_page();
+// `bytes' of code page `page' as UTF-8 (0.4.6): a sequence that is no character
+// of the page becomes the page's replacement; empty for a page the system does
+// not know.
+std::string utf8_from_code_page(std::string_view bytes, unsigned page);
 // Whether the system lets a program that declares itself long-path aware use
 // names past MAX_PATH (LongPathsEnabled).
 bool long_paths_enabled();

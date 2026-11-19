@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.6
+
+- **The text another program writes, as UTF-8 (`mcpplibs.os.text`).** A
+  `decoder` for an `encoding`: `utf8`, or `console`, in which a Windows console
+  program writes its text to a pipe or a file --- the output code page of the
+  console it is attached to, else the system's ANSI code page, as measured with
+  cl.exe and link.exe (mcpp-community/mcpp#970). The page is read when the
+  decoder is made, in the program that starts the other; a sequence that is no
+  character of the page becomes a replacement character. Elsewhere `console`
+  is UTF-8, and `valid_utf8` replaces each sequence that is not UTF-8 with
+  U+FFFD, a maximal subpart at a time.
+- **`windows::console_text_code_page` and `windows::utf8_from_code_page`.** The
+  page of the console this program is attached to, whatever its own streams
+  are, or the system's ANSI code page from the registry, which `GetACP` answers
+  only to a program that declares no code page of its own; and text of a code
+  page as UTF-8.
+
 ## 0.4.5
 
 - **A start refused for its size says so.** Where the system refuses a start
