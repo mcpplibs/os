@@ -13,6 +13,7 @@ export import mcpplibs.os.fs;
 export import mcpplibs.os.process;
 export import mcpplibs.os.interrupt;
 export import mcpplibs.os.stdio;
+export import mcpplibs.os.text;
 export import mcpplibs.os.terminal;
 export import mcpplibs.os.dirs;
 export import mcpplibs.os.ipc;

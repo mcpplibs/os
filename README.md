@@ -108,6 +108,23 @@ states what it spends resources for (balanced, performance, economy). Each is
 refused with `errc::not_supported` where the system cannot give it, never
 dropped (0.2.8).
 
+## The text another program writes (0.4.6)
+
+This package's text is UTF-8, and so is a program's on every system but one
+convention: a Windows console program writes its text to a pipe or a file in
+the output code page of the console it is attached to, and in the system's ANSI
+code page when it is attached to none. Measured with cl.exe and link.exe
+(mcpp-community/mcpp#970, windows-2022): under consoles in code pages 437, 1252,
+936 and 65001 each wrote in the console's page, and with no console in the
+system's. `text::decoder(text::encoding::console)` reads that page when it is
+made, in the program that starts the other --- which inherits its console or
+the absence of one --- and converts what it reads to UTF-8, a line at a time;
+a sequence that is no character of the page becomes a replacement character.
+On every other system `console` is UTF-8, and the decoder replaces each
+sequence that is not UTF-8 with U+FFFD (`text::valid_utf8`, a maximal subpart
+at a time). `windows::console_text_code_page()` and
+`windows::utf8_from_code_page()` are the two facts beneath it.
+
 ## Modules
 
 | Module | Contents |
@@ -119,6 +136,7 @@ dropped (0.2.8).
 | `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, declared units, observation and retirement, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |
 | `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`) |
+| `mcpplibs.os.text` | the text another program writes, as UTF-8: `decoder` for an `encoding` (`utf8`, or `console`, the convention of Windows console programs), `valid_utf8` |
 | `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` (with or without the interrupting keystroke), `foreground` |
 | `mcpplibs.os.dirs` | `home`, `config`, `data`, `state`, `cache`, `runtime`, `temp` |
 | `mcpplibs.os.ipc` | a listener and a connection at a name in a directory; `single_instance` |

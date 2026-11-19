@@ -69,6 +69,36 @@ reg_get_value registry_reader() {
 void* const kLocalMachine = reinterpret_cast<void*>(static_cast<std::intptr_t>(static_cast<std::int32_t>(0x80000002)));
 }  // namespace
 
+unsigned console_text_code_page() {
+    // Attached or not, whatever this program's own streams are: a program it
+    // starts inherits the console, not the streams.
+    if (const unsigned page = late::GetConsoleOutputCP(); page != 0) return page;
+    // The system's ANSI code page is the registry's value: `GetACP' answers it
+    // only to a program that declares no code page of its own, and this one may
+    // declare UTF-8.
+    if (const auto get = registry_reader()) {
+        okos_wchar value[16] = {};
+        okos_dword bytes = sizeof value;
+        if (get(kLocalMachine, u"SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage", u"ACP",
+                0x2 /* RRF_RT_REG_SZ */, nullptr, value, &bytes) == 0) {
+            unsigned page = 0;
+            for (std::size_t i = 0; i < 16 && value[i] >= u'0' && value[i] <= u'9'; ++i)
+                page = page * 10 + static_cast<unsigned>(value[i] - u'0');
+            if (page != 0) return page;
+        }
+    }
+    return late::GetACP();
+}
+
+std::string utf8_from_code_page(std::string_view bytes, unsigned page) {
+    if (bytes.empty()) return {};
+    const int n = MultiByteToWideChar(page, 0, bytes.data(), static_cast<int>(bytes.size()), nullptr, 0);
+    if (n <= 0) return {};
+    std::u16string wide(static_cast<std::size_t>(n), u'\0');
+    MultiByteToWideChar(page, 0, bytes.data(), static_cast<int>(bytes.size()), wide.data(), n);
+    return utf8_from_utf16(wide);
+}
+
 bool long_paths_enabled() {
     const auto get = registry_reader();
     if (!get) return false;
