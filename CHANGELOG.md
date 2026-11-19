@@ -13,9 +13,11 @@
   False where the system gives a program nothing to make a reference from;
   `owned_unit::create` is then `errc::not_supported`, and a caller learns it
   before it starts anything. `unit_observer::open` reports
-  `errc::not_supported` for a reference made in another process space, an
-  answer that does not change by waiting, where `unit_state::unknown` and any
-  other error may pass (openkal 0.26, clause 7.18).
+  `errc::not_supported` for a unit the program can never observe --- a
+  reference made in another process space, or a unit whose identity the system
+  did not keep once its last holder was lost --- an answer that does not change
+  by waiting, where `unit_state::unknown` and any other error may pass (openkal
+  0.26, clause 7.18).
 - **The kernel layer's version (`env::kernel_layer`).** The version of openkal's
   specification the implementation beneath the program answers for, as
   `layer_version{major, minor, patch}`: what a report states beside the system.

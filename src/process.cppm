@@ -64,10 +64,12 @@ bool units_observable() noexcept;
 
 class unit_observer {
 public:
-    // errc::not_supported: the reference was made where this program cannot
-    // observe --- another process space of this start of the system --- and
-    // the answer is the same however long the caller waits. Any other error,
-    // and `unit_state::unknown', may pass (0.4.5, openkal 0.26).
+    // errc::not_supported: this program can never observe the unit --- the
+    // reference was made in another process space of this start of the
+    // system, or the system did not keep the unit's identity once its last
+    // holder was lost --- and the answer is the same however long the caller
+    // waits. Any other error, and `unit_state::unknown', may pass (0.4.5,
+    // openkal 0.26).
     static result<unit_observer> open(std::string_view reference);
     unit_observer() = default;
     unit_observer(unit_observer&&) noexcept;
