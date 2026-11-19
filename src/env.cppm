@@ -64,4 +64,15 @@ std::vector<std::filesystem::path> search_path();
 std::optional<std::filesystem::path> find_executable(std::string_view name);
 std::optional<std::filesystem::path> find_executable(std::string_view name, std::string_view path_list);
 
+
+// THE KERNEL LAYER BENEATH THIS PROGRAM (0.4.5): the version of openkal's
+// specification its implementation answers for. What a report of a failure
+// states beside the system, and what tells two families of the layer apart
+// where this library admits both.
+struct layer_version {
+    unsigned major = 0, minor = 0, patch = 0;
+    auto operator<=>(const layer_version&) const = default;
+};
+layer_version kernel_layer() noexcept;
+
 }  // namespace mcpplibs::os::env

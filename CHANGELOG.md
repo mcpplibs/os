@@ -16,6 +16,9 @@
   `errc::not_supported` for a reference made in another process space, an
   answer that does not change by waiting, where `unit_state::unknown` and any
   other error may pass (openkal 0.26, clause 7.18).
+- **The kernel layer's version (`env::kernel_layer`).** The version of openkal's
+  specification the implementation beneath the program answers for, as
+  `layer_version{major, minor, patch}`: what a report states beside the system.
 - **openkal 0.26 and the implementations of its family are admitted.** openkal
   `>=0.24.0, <0.27.0`, openkal-linux `>=0.25.0, <0.28.0`, openkal-macos
   `>=0.22.0, <0.25.0`, openkal-windows `>=0.20.0, <0.24.0` (0.22 and 0.23),
