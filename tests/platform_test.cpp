@@ -45,6 +45,16 @@ UTest platform_tests{"platform", [] {
         if (!os::is_openkal && !os::is_emscripten)
             expect(os::machine::memory_available().value_or(0) > 0) << "and the memory available now";
     }
+    {
+        // Every system this library defines names its processor; an image
+        // and a wasm module are told nothing of the machine beneath them.
+        const auto model = os::machine::processor_model();
+        if constexpr (os::is_openkal || os::is_emscripten)
+            expect(!model) << "an image is not told the processor's model";
+        else
+            expect(model && !model->empty() && model->front() != ' ' && model->back() != ' ')
+                << "the processor's model is named, without the spaces around it";
+    }
     if constexpr (os::is_windows) {
         expect(os::windows::code_page() != 0) << "Windows: the ANSI code page is known";
         (void)os::windows::long_paths_enabled();

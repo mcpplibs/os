@@ -141,7 +141,7 @@ at a time). `windows::console_text_code_page()` and
 | `mcpplibs.os.dirs` | `home`, `config`, `data`, `state`, `cache`, `runtime`, `temp` |
 | `mcpplibs.os.ipc` | a listener and a connection at a name in a directory; `single_instance` |
 | `mcpplibs.os.net` | loopback TCP |
-| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed) |
+| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed), the processor's model |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
 | `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
 | `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined on their own and, where an image can answer, in an image; the system's object models, through which its services that are not functions are reached: `windows::com` (COM and the Windows Runtime) and `macos::objc` (the Objective-C runtime) |

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.7
+
+- **The processor's model (`machine::processor_model`).** The model as the
+  system names it: `model name` of `/proc/cpuinfo` on Linux, where a kernel
+  that names no model (most aarch64 and riscv64 processors) gives the
+  implementer and part, `0x41:0xd0c`; `machdep.cpu.brand_string` on macOS; the
+  registry's `ProcessorNameString` on Windows. An image and a wasm module are
+  told nothing. Machines of one architecture and one count of processors
+  differ in speed by up to 1.6 times on one class of hosted runner, and a
+  measurement compared across them is compared by this name.
+
 ## 0.4.6
 
 - **The text another program writes, as UTF-8 (`mcpplibs.os.text`).** A

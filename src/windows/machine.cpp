@@ -61,4 +61,29 @@ processor_count processors() {
     return c;
 }
 
+// The registry's name of the first processor, as the system's own tools show
+// it; advapi32 is reached at run time (src/windows/win32.h).
+std::optional<std::string> processor_model() {
+    using reg_get_value = int(__stdcall*)(void*, const okos_wchar*, const okos_wchar*, okos_dword, okos_dword*,
+                                          void*, okos_dword*);
+    const okos_handle advapi = LoadLibraryW(u"advapi32.dll");
+    if (!advapi) return std::nullopt;
+    const auto get = reinterpret_cast<reg_get_value>(GetProcAddress(advapi, "RegGetValueW"));
+    if (!get) return std::nullopt;
+    void* const local_machine = reinterpret_cast<void*>(static_cast<std::intptr_t>(static_cast<std::int32_t>(0x80000002)));
+    okos_wchar value[128] = {};
+    okos_dword bytes = sizeof value;
+    if (get(local_machine, u"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", u"ProcessorNameString",
+            0x2 /* RRF_RT_REG_SZ */, nullptr, value, &bytes) != 0)
+        return std::nullopt;
+    const std::u16string_view wide(value);
+    const int n = WideCharToMultiByte(65001, 0, wide.data(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
+    if (n <= 0) return std::nullopt;
+    std::string name(static_cast<std::size_t>(n), '\0');
+    WideCharToMultiByte(65001, 0, wide.data(), static_cast<int>(wide.size()), name.data(), n, nullptr, nullptr);
+    const auto begin = name.find_first_not_of(' ');
+    if (begin == std::string::npos) return std::nullopt;
+    return name.substr(begin, name.find_last_not_of(' ') - begin + 1);
+}
+
 }  // namespace mcpplibs::os::machine
