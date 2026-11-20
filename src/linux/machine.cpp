@@ -84,6 +84,21 @@ bool hybrid(std::uint32_t logical) {
     return false;
 }
 
+// The value of `key' in /proc/cpuinfo's first processor, or nothing.
+std::optional<std::string> cpuinfo(std::string_view key) {
+    std::ifstream in("/proc/cpuinfo", std::ios::binary);
+    for (std::string line; std::getline(in, line);) {
+        if (line.empty()) break;
+        if (!line.starts_with(key)) continue;
+        const auto colon = line.find(':');
+        if (colon == std::string::npos || line.find_first_not_of(" \t", key.size()) != colon) continue;
+        const auto begin = line.find_first_not_of(' ', colon + 1);
+        if (begin == std::string::npos) return std::nullopt;
+        return line.substr(begin);
+    }
+    return std::nullopt;
+}
+
 }  // namespace
 
 std::string arch() {
@@ -113,6 +128,17 @@ processor_count processors() {
     c.physical = cores > 0 ? std::min(static_cast<std::uint32_t>(cores), c.logical) : c.logical;
     c.heterogeneous = hybrid(c.logical);
     return c;
+}
+
+// x86 names the model; aarch64 and riscv64 kernels name the implementer and
+// the part (the identification registers), from which a model is a table
+// this library does not keep.
+std::optional<std::string> processor_model() {
+    if (auto model = cpuinfo("model name")) return model;
+    const auto implementer = cpuinfo("CPU implementer"), part = cpuinfo("CPU part");
+    if (implementer && part) return *implementer + ":" + *part;
+    if (auto uarch = cpuinfo("uarch")) return uarch;
+    return std::nullopt;
 }
 
 }  // namespace mcpplibs::os::machine

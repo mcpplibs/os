@@ -30,4 +30,6 @@ processor_count processors() {
     return c;
 }
 
+std::optional<std::string> processor_model() { return std::nullopt; }
+
 }  // namespace mcpplibs::os::machine

@@ -22,4 +22,7 @@ processor_count processors() {
     return c;
 }
 
+// An image is told nothing of the processor beneath it.
+std::optional<std::string> processor_model() { return std::nullopt; }
+
 }  // namespace mcpplibs::os::machine

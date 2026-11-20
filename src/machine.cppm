@@ -33,4 +33,12 @@ struct processor_count {
 };
 processor_count processors();
 
+// The processor's model as the system names it (`AMD EPYC 7763 64-Core
+// Processor', `Apple M2'), so that two machines of one architecture and one
+// count of processors are told apart where they differ in speed. Where the
+// kernel names no model (Linux on most aarch64 processors) it is the
+// processor's implementer and part, `0x41:0xd0c'; an image is told nothing
+// (0.4.7).
+std::optional<std::string> processor_model();
+
 }  // namespace mcpplibs::os::machine

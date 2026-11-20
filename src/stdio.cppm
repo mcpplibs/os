@@ -51,8 +51,11 @@ private:
 // WHAT THIS PROGRAM WRITES TO ONE OF ITS STANDARD STREAMS, KEPT (0.4.1): from
 // `begin' the stream is a file, so what the program writes there -- through
 // openkal, its C library or the C++ streams -- and what the programs it starts
-// meanwhile write is kept; `text' (or destruction) puts the stream back and
-// gives what was kept. A test reads what a program prints with it.
+// meanwhile write is kept; `take' gives what was written since `begin' or the
+// last `take' and keeps the stream diverted (0.4.7); `text' (or destruction)
+// puts the stream back and gives the rest. A test reads what a program prints
+// with it; a test framework takes each case's output from one capture.
+// Neither makes the file durable: what is kept is read back by this process.
 // errc::not_supported where the streams cannot be rearranged (an image).
 enum class stream { output, error };
 
@@ -65,13 +68,18 @@ public:
     capture(const capture&) = delete;
     capture& operator=(const capture&) = delete;
     ~capture();
-    // The stream put back, and what was written to it; empty after the first call.
+    // What was written since `begin' or the last `take'; the stream stays diverted.
+    std::string take();
+    // The stream put back, and what was written to it since the last `take';
+    // empty after the first call.
     std::string text();
 private:
     void end();
+    std::string read_rest();
     int descriptor_ = -1;
     int saved_ = -1;
     std::filesystem::path file_;
+    std::uintmax_t taken_ = 0;
 };
 
 }  // namespace mcpplibs::os::stdio

@@ -52,4 +52,12 @@ processor_count processors() {
     return c;
 }
 
+std::optional<std::string> processor_model() {
+    char brand[256] = {};
+    unsigned long len = sizeof brand;
+    if (::sysctlbyname("machdep.cpu.brand_string", brand, &len, nullptr, 0) != 0 || brand[0] == '\0')
+        return std::nullopt;
+    return std::string(brand);
+}
+
 }  // namespace mcpplibs::os::machine

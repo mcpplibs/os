@@ -135,13 +135,13 @@ at a time). `windows::console_text_code_page()` and
 | `mcpplibs.os.fs` | `write_atomic`, `publish` (no replace), `append`, `sync`, `caps`, `lock`, links, `set_executable`, `stamp_of`, `identity_of`, `owner_of`, `writable`, `locate`, `absolute`, `names_a_place`, `canonical`, a bounded `read`; what a volume does, measured (`measure`, `volume_type`), and the operations that follow it (`place`, `exchange`); names in the host's rules without the file system: `generic`, `native`, `extended`, `is_absolute`, `same`, `within`; which names changed (`watcher`: inotify, kqueue, `ReadDirectoryChangesW`; a look when asked in an image and on Emscripten) |
 | `mcpplibs.os.process` | `spawn`, `run` (and with bounds: a hard bound, a grace, a drain, output limits), `exec`, a command line joined as it is for the command interpreter (`one_string`), pipes, both outputs on one pipe, output onto this program's error output, units and `end_unit`, declared units, observation and retirement, bound lifetime, bounded waits and reads; `self`, `describe`, `alive`, `threads` |
 | `mcpplibs.os.interrupt` | `requested`, `wait`, `end_as_requested`, `end_as_output_closed` |
-| `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`) |
+| `mcpplibs.os.stdio` | the three streams as bytes; a bounded read of input; the output sent to the error stream for a while (`output_to_error`); what a stream is written, kept and taken in parts (`capture`) |
 | `mcpplibs.os.text` | the text another program writes, as UTF-8: `decoder` for an `encoding` (`utf8`, or `console`, the convention of Windows console programs), `valid_utf8` |
 | `mcpplibs.os.terminal` | `interactive`, `size`, `sequences`, `color`, `raw_mode` (with or without the interrupting keystroke), `foreground` |
 | `mcpplibs.os.dirs` | `home`, `config`, `data`, `state`, `cache`, `runtime`, `temp` |
 | `mcpplibs.os.ipc` | a listener and a connection at a name in a directory; `single_instance` |
 | `mcpplibs.os.net` | loopback TCP |
-| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed) |
+| `mcpplibs.os.machine` | the machine's architecture (through Rosetta and WoW64), memory and the memory available now, processors (logical, physical, of differing speed), the processor's model |
 | `mcpplibs.os.random` | bytes from the system's source of unpredictable bytes; `hex` |
 | `mcpplibs.os.library` | shared libraries at run time: `open` (a path or a name the system searches for), `loaded` (one the process has, without loading it), a handle's `symbol` / `function<F>`, `process_symbol` (as the loader resolves one), `suffix` |
 | `mcpplibs.os.linux` / `.macos` / `.windows` / `.posix` | platform modules: declared on every target, defined on their own and, where an image can answer, in an image; the system's object models, through which its services that are not functions are reached: `windows::com` (COM and the Windows Runtime) and `macos::objc` (the Objective-C runtime) |
