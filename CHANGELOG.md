@@ -10,6 +10,14 @@
   told nothing. Machines of one architecture and one count of processors
   differ in speed by up to 1.6 times on one class of hosted runner, and a
   measurement compared across them is compared by this name.
+- **A capture is taken in parts and is not made durable
+  (`stdio::capture::take`).** `take` gives what was written since `begin` or
+  the last `take`, and the stream stays diverted, so a test framework keeps one
+  capture for a program and takes each case's part from it. A capture no
+  longer flushes openkal's stream when it begins and ends: openkal buffers
+  nothing, and its flush of a file is the kernel's synchronisation (`fsync`),
+  which made a program of 510 cases take one second instead of three
+  hundredths under a runner that keeps each case's output.
 
 ## 0.4.6
 

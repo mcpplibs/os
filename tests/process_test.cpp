@@ -123,6 +123,9 @@ int run_errand(std::string_view errand) {
         }
         (void)os::stdio::write_error("kal|");
         std::fputs("libc|", stderr);
+        // What was written so far is taken while the stream stays kept (0.4.7).
+        const auto first = e->take();
+        (void)os::stdio::write_error("<" + first + ">");
         auto o = copy_of_self("say");
         o.out = os::process::stdio::error;
         o.err = os::process::stdio::inherit;
@@ -419,11 +422,11 @@ UTest process_tests{"process", [] {
         auto d = os::process::run(copy("divert"));
         expect(d && d->out == "document" && d->err == "narration") << "output sent to the error stream for a while, and the document to the output as it was";
         auto c = os::process::run(copy("capture"));
-        const bool kept = c && c->out == "[kal|libc|said]" && c->err == "after";
+        const bool kept = c && c->out == "[<kal|libc|>said]" && c->err == "after";
         const bool refused = c && c->out == "unsupported" && os::is_openkal;
         if (!kept && !refused && c)
             std::printf("  (the copy wrote '%s' and '%s')\n", c->out.c_str(), c->err.c_str());
-        expect(kept || refused) << "a standard stream kept while it is captured, with what a started program wrote, then put back";
+        expect(kept || refused) << "a standard stream kept while it is captured, with what a started program wrote, taken in two parts, then put back";
         // What a program used: its own, and its waited-for children's together.
         auto mine = os::process::resources(os::process::of::self);
         expect(mine ? mine->peak_memory.value_or(0) > 0 : os::is_openkal || os::is_emscripten) << "this program's largest resident set is known";

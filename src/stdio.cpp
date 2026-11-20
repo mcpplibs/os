@@ -91,9 +91,12 @@ output_to_error::~output_to_error() {
     sys::restore_output(saved_);
 }
 
+// What the C library and the C++ streams buffer is written before the stream
+// changes hands. openkal buffers nothing, and its flush of a file is the
+// kernel's synchronisation (fsync): two per case made a 510-case program take
+// one second instead of three hundredths, so a capture does not ask for it.
 result<capture> capture::begin(stream which) {
     std::fflush(nullptr);
-    (void)flush_output();
     capture c;
     c.descriptor_ = which == stream::output ? 1 : 2;
     c.file_ = std::filesystem::temp_directory_path()
@@ -108,13 +111,18 @@ result<capture> capture::begin(stream which) {
 }
 
 capture::capture(capture&& o) noexcept
-    : descriptor_(std::exchange(o.descriptor_, -1)), saved_(std::exchange(o.saved_, -1)), file_(std::move(o.file_)) {}
+    : descriptor_(std::exchange(o.descriptor_, -1)), saved_(std::exchange(o.saved_, -1)), file_(std::move(o.file_)),
+      taken_(std::exchange(o.taken_, 0)) {
+    o.file_.clear();
+}
 capture& capture::operator=(capture&& o) noexcept {
     if (this != &o) {
         end();
         descriptor_ = std::exchange(o.descriptor_, -1);
         saved_ = std::exchange(o.saved_, -1);
         file_ = std::move(o.file_);
+        o.file_.clear();
+        taken_ = std::exchange(o.taken_, 0);
     }
     return *this;
 }
@@ -123,15 +131,29 @@ capture::~capture() { end(); }
 void capture::end() {
     if (saved_ < 0) return;
     std::fflush(nullptr);
-    (void)flush_output();
     sys::restore_descriptor(descriptor_, std::exchange(saved_, -1));
+}
+
+std::string capture::read_rest() {
+    std::string kept;
+    std::ifstream in(file_, std::ios::binary);
+    if (!in) return kept;
+    in.seekg(static_cast<std::streamoff>(taken_));
+    kept.assign(std::istreambuf_iterator<char>(in), {});
+    taken_ += kept.size();
+    return kept;
+}
+
+std::string capture::take() {
+    if (file_.empty()) return {};
+    std::fflush(nullptr);
+    return read_rest();
 }
 
 std::string capture::text() {
     if (file_.empty()) return {};
     end();
-    std::string kept;
-    if (std::ifstream in(file_, std::ios::binary); in) kept.assign(std::istreambuf_iterator<char>(in), {});
+    auto kept = read_rest();
     std::error_code ec;
     std::filesystem::remove(file_, ec);
     file_.clear();
