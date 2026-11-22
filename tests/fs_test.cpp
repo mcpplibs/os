@@ -90,6 +90,12 @@ UTest fs_tests{"fs", [] {
             expect(t && t->find("target") != std::string::npos) << "and reads back its target";
             expect(stdfs::exists(dir / "link" / ".")) << "and reaches the directory";
         }
+        // A link's own stamp: one that names nothing has one, and what it
+        // would finally refer to has none.
+        if (os::fs::create_link("nowhere", dir / "dangling", false)) {
+            expect(os::fs::stamp_of(dir / "dangling", false).has_value()) << "a dangling link has a stamp of its own";
+            expect(!os::fs::stamp_of(dir / "dangling").has_value()) << "and what it refers to has none";
+        }
     }
     if (!caps || caps->rename_no_replace) {
         expect(os::fs::rename(file, dir / "b.txt", false).has_value()) << "a rename that does not replace renames to a free name";

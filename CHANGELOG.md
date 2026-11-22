@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.8
+
+- **A link's own stamp (`fs::stamp_of(node, false)`).** With `resolve` false
+  the stamp is the link's own size and modification time, read without
+  following it (openkal's `KAL_FS_NO_RESOLVE`), and a dangling link has one. A
+  program that keeps links as records reads them so: a store's roots, whose
+  time is when their owner last used the payload they name (xlings'
+  store-roots specification). The default is unchanged.
+
 ## 0.4.7
 
 - **The processor's model (`machine::processor_model`).** The model as the
