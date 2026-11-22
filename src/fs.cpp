@@ -474,7 +474,8 @@ result<void> set_executable(const std::filesystem::path& file, bool executable) 
 }
 
 namespace {
-result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, std::string_view doing) {
+result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, std::string_view doing,
+                           kal_uintptr flags = 0) {
     auto l = where(node, doing);
     if (!l) return std::unexpected(l.error());
     kal_node_info i{};
@@ -482,7 +483,7 @@ result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, st
     // The kind is asked for as well, because absence is read from it: an
     // implementation fills only the fields it was asked for (openkal-emscripten
     // does), and a kind left at zero reads as kal_node_absent.
-    const int rc = kal_fs_info(dir_of(*l), l->relative.data(), l->relative.size(), 0,
+    const int rc = kal_fs_info(dir_of(*l), l->relative.data(), l->relative.size(), flags,
                                wanted | kal::fs::field::kind, &i);
     if (rc != kal_ok) return std::unexpected(from_kal(rc, std::format("{} {}", doing, generic_utf8(node))));
     if (i.kind == kal_node_absent) return std::unexpected(error{ errc::not_found, std::format("{} {}", doing, generic_utf8(node)) });
@@ -490,8 +491,9 @@ result<kal_node_info> info(const std::filesystem::path& node, kal_u32 wanted, st
 }
 }  // namespace
 
-result<stamp> stamp_of(const std::filesystem::path& node) {
-    auto i = info(node, kal::fs::field::size | kal::fs::field::modified, "asking about");
+result<stamp> stamp_of(const std::filesystem::path& node, bool resolve) {
+    auto i = info(node, kal::fs::field::size | kal::fs::field::modified, "asking about",
+                  resolve ? 0 : kal::fs::no_resolve);
     if (!i) return std::unexpected(i.error());
     return stamp{ i->size, i->modified_ns };
 }

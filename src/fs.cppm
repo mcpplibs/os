@@ -224,7 +224,12 @@ struct stamp {
     std::uint64_t modified_ns = 0;
     auto operator<=>(const stamp&) const = default;
 };
-result<stamp> stamp_of(const std::filesystem::path& node);
+// `resolve' false: the stamp of the name itself where it is a link --- the
+// link's own size and modification time --- and not of the node it finally
+// refers to. A program that keeps links as records (a store's roots, whose
+// time is when their owner last used the payload) reads them so; a dangling
+// link has a stamp of its own.
+result<stamp> stamp_of(const std::filesystem::path& node, bool resolve = true);
 
 // Two names are one node exactly when their identities are equal.
 struct identity {
